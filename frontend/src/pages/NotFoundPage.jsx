@@ -4,18 +4,23 @@ import { AlertCircle, ArrowLeft } from 'lucide-react';
 
 const NotFoundPage = () => {
   return (
-    <div className="custom-card empty-state p-5 my-5 text-center">
-      <AlertCircle size={54} className="text-warning mb-3" />
-      <h2 className="h4 fw-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-        Page Not Found
-      </h2>
-      <p className="text-muted mb-4 small" style={{ maxWidth: '400px', margin: '0 auto' }}>
-        The page you are looking for does not exist or has been moved.
-      </p>
-      <Link to="/" className="btn btn-indigo d-inline-flex align-items-center gap-2">
-        <ArrowLeft size={16} />
-        <span>Return to Dashboard</span>
-      </Link>
+    <div 
+      className="d-flex align-items-center justify-content-center min-vh-100 p-3"
+      style={{ backgroundColor: 'var(--lc-bg-main)' }}
+    >
+      <div className="lc-panel p-5 text-center shadow-sm" style={{ maxWidth: 440 }}>
+        <AlertCircle size={44} className="mb-3" style={{ color: 'var(--lc-accent)' }} />
+        <h1 className="h5 fw-bold mb-2" style={{ color: 'var(--lc-text-primary)' }}>
+          404 - Page Not Found
+        </h1>
+        <p className="small mb-4" style={{ color: 'var(--lc-text-secondary)' }}>
+          The problem or page you requested could not be found or has been moved.
+        </p>
+        <Link to="/" className="btn btn-sm btn-lc-primary d-inline-flex align-items-center gap-1">
+          <ArrowLeft size={14} />
+          <span>Return to Dashboard</span>
+        </Link>
+      </div>
     </div>
   );
 };

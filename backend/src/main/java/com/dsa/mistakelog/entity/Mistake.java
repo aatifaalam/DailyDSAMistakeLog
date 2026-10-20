@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @Table(
     name = "mistakes",
     indexes = {
+        @Index(name = "idx_mistake_user_id", columnList = "user_id"),
         @Index(name = "idx_mistake_topic", columnList = "topic"),
         @Index(name = "idx_mistake_type", columnList = "mistake_type"),
         @Index(name = "idx_mistake_platform", columnList = "platform"),
@@ -27,6 +28,10 @@ public class Mistake {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Column(name = "problem_name", nullable = false, length = 255)
     private String problemName;

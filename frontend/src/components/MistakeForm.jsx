@@ -6,9 +6,9 @@ import {
   ArrowLeft, 
   AlertCircle, 
   ExternalLink,
-  HelpCircle,
   Clock,
-  HardDrive
+  HardDrive,
+  Info
 } from 'lucide-react';
 import { MISTAKE_TYPES, PLATFORMS, TOPICS, REVIEW_STATUSES } from '../utils/constants';
 import ConfirmationModal from './ConfirmationModal';
@@ -69,7 +69,6 @@ const MistakeForm = ({
     }
   }, [initialData]);
 
-  // Track whether form has unsaved changes
   const isDirty = useMemo(() => {
     return JSON.stringify(formData) !== JSON.stringify(initialSnapshot);
   }, [formData, initialSnapshot]);
@@ -81,7 +80,6 @@ const MistakeForm = ({
       [name]: type === 'checkbox' ? checked : value
     }));
 
-    // Clear client validation error on change
     if (clientErrors[name]) {
       setClientErrors(prev => ({ ...prev, [name]: null }));
     }
@@ -93,16 +91,16 @@ const MistakeForm = ({
       errors.problemName = 'Problem name is required';
     }
     if (!formData.firstApproach.trim()) {
-      errors.firstApproach = 'My first approach is required';
+      errors.firstApproach = 'Original approach is required';
     }
     if (!formData.whyWrong.trim()) {
-      errors.whyWrong = 'Why was it wrong is required';
+      errors.whyWrong = 'Reason for failure is required';
     }
     if (!formData.mistakeType) {
       errors.mistakeType = 'Please select a mistake category';
     }
     if (!formData.whatToChangeNextTime.trim()) {
-      errors.whatToChangeNextTime = 'What will I change next time is required';
+      errors.whatToChangeNextTime = 'Next-time strategy is required';
     }
     if (formData.problemUrl && formData.problemUrl.trim()) {
       const urlPattern = /^(https?:\/\/[^\s$.?#].[^\s]*)$/i;
@@ -118,8 +116,7 @@ const MistakeForm = ({
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!validate()) {
-      // scroll to first error
-      window.scrollTo({ top: 100, behavior: 'smooth' });
+      window.scrollTo({ top: 80, behavior: 'smooth' });
       return;
     }
 
@@ -171,7 +168,6 @@ const MistakeForm = ({
     setConfirmModal({ isOpen: false, action: null, title: '', message: '' });
   };
 
-  // Merge client and server validation errors
   const errors = { ...clientErrors, ...(serverErrors || {}) };
 
   return (
@@ -180,100 +176,107 @@ const MistakeForm = ({
         isOpen={confirmModal.isOpen}
         title={confirmModal.title}
         message={confirmModal.message}
-        confirmText="Yes, Discard"
+        confirmText="Discard Changes"
         confirmVariant="warning"
         onConfirm={handleConfirmModal}
         onCancel={() => setConfirmModal({ isOpen: false, action: null, title: '', message: '' })}
       />
 
       <form onSubmit={handleSubmit} noValidate>
-        {/* Top Action Bar */}
-        <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        {/* Top Control Bar */}
+        <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
           <button 
             type="button" 
-            className="btn btn-secondary-custom d-inline-flex align-items-center gap-2"
+            className="btn btn-sm btn-lc-secondary d-inline-flex align-items-center gap-1"
             onClick={handleCancelClick}
           >
-            <ArrowLeft size={18} />
-            <span>Back</span>
+            <ArrowLeft size={14} />
+            <span>Cancel</span>
           </button>
 
           <div className="d-flex align-items-center gap-2">
+            {isDirty && (
+              <span className="small text-muted font-mono d-none d-sm-inline" style={{ fontSize: '0.75rem' }}>
+                Unsaved modifications
+              </span>
+            )}
             <button 
               type="button" 
-              className="btn btn-secondary-custom d-inline-flex align-items-center gap-2"
+              className="btn btn-sm btn-lc-secondary d-inline-flex align-items-center gap-1"
               onClick={handleResetClick}
               disabled={isLoading || !isDirty}
             >
-              <RotateCcw size={17} />
+              <RotateCcw size={13} />
               <span>Reset</span>
             </button>
 
             <button 
               type="submit" 
-              className="btn btn-save d-inline-flex align-items-center gap-2 px-4"
+              className="btn btn-sm btn-lc-primary d-inline-flex align-items-center gap-1 px-3"
               disabled={isLoading}
             >
               {isLoading ? (
                 <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
               ) : (
-                <Save size={18} />
+                <Save size={14} />
               )}
               <span>{isEdit ? 'Update Mistake' : 'Save Mistake'}</span>
             </button>
           </div>
         </div>
 
-        {/* Global Server Error Alert if any */}
+        {/* Global Error Banner */}
         {serverErrors && serverErrors._general && (
-          <div className="alert alert-danger d-flex align-items-center gap-2 mb-4" role="alert">
-            <AlertCircle size={20} className="flex-shrink-0" />
-            <div>{serverErrors._general}</div>
+          <div 
+            className="p-3 mb-3 rounded d-flex align-items-center gap-2"
+            style={{ backgroundColor: 'rgba(239, 71, 67, 0.1)', border: '1px solid var(--lc-error)', color: 'var(--lc-error)' }}
+          >
+            <AlertCircle size={16} className="flex-shrink-0" />
+            <span className="small">{serverErrors._general}</span>
           </div>
         )}
 
         {/* Section 1: Problem Identity */}
-        <div className="custom-card p-4 p-md-5 mb-4">
-          <div className="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom" style={{ borderColor: 'var(--border-color)' }}>
+        <div className="lc-panel p-4 mb-3">
+          <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom" style={{ borderColor: 'var(--lc-border)' }}>
             <div>
-              <h2 className="h5 fw-bold mb-1" style={{ color: 'var(--text-primary)' }}>1. Problem Identification</h2>
-              <small className="text-muted">Problem details, platform source, and algorithmic topic.</small>
+              <h2 className="h6 fw-semibold mb-0" style={{ color: 'var(--lc-text-primary)' }}>
+                1. Problem Details
+              </h2>
+              <small className="text-muted" style={{ fontSize: '0.75rem' }}>
+                Specify the target problem, algorithmic topic, and platform source.
+              </small>
             </div>
-            {isDirty && (
-              <span className="badge rounded-pill bg-warning text-dark px-3 py-2 fw-semibold">
-                Unsaved Changes
-              </span>
-            )}
           </div>
 
-          <div className="row g-4">
+          <div className="row g-3">
             <div className="col-12 col-md-6">
-              <label htmlFor="problemName" className="form-label">
-                Problem Name <span className="text-danger">*</span>
+              <label htmlFor="problemName" className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
+                Problem Name <span style={{ color: 'var(--lc-error)' }}>*</span>
               </label>
               <input
                 type="text"
                 id="problemName"
                 name="problemName"
-                className={`form-control ${errors.problemName ? 'is-invalid' : ''}`}
-                placeholder="e.g. Daily Temperatures, 3Sum, LRU Cache"
+                className={`form-control form-control-sm ${errors.problemName ? 'is-invalid' : ''}`}
+                placeholder="e.g. Trapping Rain Water, LRU Cache, 3Sum"
                 value={formData.problemName}
                 onChange={handleChange}
                 required
               />
               {errors.problemName && (
-                <div className="invalid-feedback">{errors.problemName}</div>
+                <div className="invalid-feedback" style={{ fontSize: '0.72rem' }}>{errors.problemName}</div>
               )}
             </div>
 
-            <div className="col-12 col-md-3">
-              <label htmlFor="platform" className="form-label">
+            <div className="col-12 col-sm-6 col-md-3">
+              <label htmlFor="platform" className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
                 Platform
               </label>
               <select
                 id="platform"
                 name="platform"
-                className="form-select"
+                className="form-select form-select-sm"
                 value={formData.platform}
                 onChange={handleChange}
               >
@@ -283,14 +286,14 @@ const MistakeForm = ({
               </select>
             </div>
 
-            <div className="col-12 col-md-3">
-              <label htmlFor="topic" className="form-label">
+            <div className="col-12 col-sm-6 col-md-3">
+              <label htmlFor="topic" className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
                 Topic
               </label>
               <select
                 id="topic"
                 name="topic"
-                className="form-select"
+                className="form-select form-select-sm"
                 value={formData.topic}
                 onChange={handleChange}
               >
@@ -301,10 +304,10 @@ const MistakeForm = ({
             </div>
 
             <div className="col-12">
-              <label htmlFor="problemUrl" className="form-label">
-                Problem URL <small className="text-muted fw-normal">(Optional link to LeetCode/HackerRank)</small>
+              <label htmlFor="problemUrl" className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
+                Problem URL <span className="text-muted fw-normal">(Optional link)</span>
               </label>
-              <div className="input-group">
+              <div className="input-group input-group-sm">
                 <input
                   type="url"
                   id="problemUrl"
@@ -319,27 +322,29 @@ const MistakeForm = ({
                     href={formData.problemUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="btn btn-secondary-custom d-flex align-items-center"
+                    className="btn btn-lc-secondary d-flex align-items-center"
                     title="Open problem link"
                   >
-                    <ExternalLink size={18} />
+                    <ExternalLink size={13} />
                   </a>
                 )}
-                {errors.problemUrl && (
-                  <div className="invalid-feedback d-block">{errors.problemUrl}</div>
-                )}
               </div>
+              {errors.problemUrl && (
+                <div className="text-danger small mt-1" style={{ fontSize: '0.72rem' }}>{errors.problemUrl}</div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Section 2: Mistake Categorization */}
-        <div className="custom-card p-4 p-md-5 mb-4">
-          <div className="mb-4 pb-2 border-bottom" style={{ borderColor: 'var(--border-color)' }}>
-            <h2 className="h5 fw-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-              2. Mistake Type <span className="text-danger">*</span>
+        {/* Section 2: Mistake Category */}
+        <div className="lc-panel p-4 mb-3">
+          <div className="mb-3 pb-2 border-bottom" style={{ borderColor: 'var(--lc-border)' }}>
+            <h2 className="h6 fw-semibold mb-0" style={{ color: 'var(--lc-text-primary)' }}>
+              2. Mistake Type / Archetype <span style={{ color: 'var(--lc-error)' }}>*</span>
             </h2>
-            <small className="text-muted">Select the root category behind what went wrong.</small>
+            <small className="text-muted" style={{ fontSize: '0.75rem' }}>
+              Select the fundamental reason why the initial solution did not pass.
+            </small>
           </div>
 
           <div className="radio-tile-group">
@@ -349,6 +354,15 @@ const MistakeForm = ({
                 <label 
                   key={type.value}
                   className={`radio-tile ${isSelected ? 'selected' : ''}`}
+                  style={{
+                    cursor: 'pointer',
+                    ...(isSelected ? {
+                      borderColor: type.color || 'var(--lc-accent)',
+                      backgroundColor: type.bg || 'rgba(255, 161, 22, 0.12)',
+                      color: type.color || 'var(--lc-accent)',
+                      boxShadow: `0 0 0 1px ${type.color || 'var(--lc-accent)'}`
+                    } : {})
+                  }}
                 >
                   <input
                     type="radio"
@@ -356,142 +370,157 @@ const MistakeForm = ({
                     value={type.value}
                     checked={isSelected}
                     onChange={handleChange}
+                    style={{
+                      accentColor: type.color || 'var(--lc-accent)',
+                      cursor: 'pointer'
+                    }}
                   />
-                  <div>
-                    <div className="fw-semibold small" style={{ color: isSelected ? '#ffffff' : 'var(--text-primary)' }}>
-                      {type.label}
-                    </div>
-                  </div>
+                  <span 
+                    className="rounded-circle d-inline-block" 
+                    style={{ 
+                      width: '8px', 
+                      height: '8px', 
+                      backgroundColor: type.color || 'var(--lc-accent)',
+                      flexShrink: 0 
+                    }} 
+                  />
+                  <span style={{ fontSize: '0.82rem', fontWeight: isSelected ? 600 : 500 }}>
+                    {type.label}
+                  </span>
                 </label>
               );
             })}
           </div>
           {errors.mistakeType && (
-            <div className="text-danger small mt-2 d-flex align-items-center gap-1">
-              <AlertCircle size={16} />
+            <div className="text-danger small mt-2 d-flex align-items-center gap-1" style={{ fontSize: '0.72rem' }}>
+              <AlertCircle size={14} />
               <span>{errors.mistakeType}</span>
             </div>
           )}
         </div>
 
-        {/* Section 3: Deep Retrospective */}
-        <div className="custom-card p-4 p-md-5 mb-4">
-          <div className="mb-4 pb-2 border-bottom" style={{ borderColor: 'var(--border-color)' }}>
-            <h2 className="h5 fw-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+        {/* Section 3: Deep Retrospective (Two-column layout on desktop) */}
+        <div className="lc-panel p-4 mb-3">
+          <div className="mb-3 pb-2 border-bottom" style={{ borderColor: 'var(--lc-border)' }}>
+            <h2 className="h6 fw-semibold mb-0" style={{ color: 'var(--lc-text-primary)' }}>
               3. Retrospective Analysis
             </h2>
-            <small className="text-muted">Articulate the failure and solidify the mental model.</small>
+            <small className="text-muted" style={{ fontSize: '0.75rem' }}>
+              Deconstruct your intuition, identify the breakdown, and specify how to solve it. (Wrap code in ``` if needed)
+            </small>
           </div>
 
-          <div className="row g-4">
-            <div className="col-12 col-lg-6">
-              <label htmlFor="firstApproach" className="form-label">
-                My First Approach <span className="text-danger">*</span>
+          <div className="row g-3">
+            <div className="col-12 col-md-6">
+              <label htmlFor="firstApproach" className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
+                Original Approach <span style={{ color: 'var(--lc-error)' }}>*</span>
               </label>
               <textarea
                 id="firstApproach"
                 name="firstApproach"
                 rows="4"
-                className={`form-control ${errors.firstApproach ? 'is-invalid' : ''}`}
-                placeholder="What was your initial intuition or algorithm before finding out it failed?"
+                className={`form-control form-control-sm ${errors.firstApproach ? 'is-invalid' : ''}`}
+                placeholder="What was your initial intuition or greedy logic before failure?"
                 value={formData.firstApproach}
                 onChange={handleChange}
                 required
               />
               {errors.firstApproach && (
-                <div className="invalid-feedback">{errors.firstApproach}</div>
+                <div className="invalid-feedback" style={{ fontSize: '0.72rem' }}>{errors.firstApproach}</div>
               )}
             </div>
 
-            <div className="col-12 col-lg-6">
-              <label htmlFor="whyWrong" className="form-label">
-                Why was it wrong? <span className="text-danger">*</span>
+            <div className="col-12 col-md-6">
+              <label htmlFor="whyWrong" className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
+                Why It Failed <span style={{ color: 'var(--lc-error)' }}>*</span>
               </label>
               <textarea
                 id="whyWrong"
                 name="whyWrong"
                 rows="4"
-                className={`form-control ${errors.whyWrong ? 'is-invalid' : ''}`}
-                placeholder="Explain the flaw: missed edge case, wrong greedy assumption, quadratic time limit, etc."
+                className={`form-control form-control-sm ${errors.whyWrong ? 'is-invalid' : ''}`}
+                placeholder="Explain the flaw: missed edge case, quadratic TLE, boundary overflow..."
                 value={formData.whyWrong}
                 onChange={handleChange}
                 required
               />
               {errors.whyWrong && (
-                <div className="invalid-feedback">{errors.whyWrong}</div>
+                <div className="invalid-feedback" style={{ fontSize: '0.72rem' }}>{errors.whyWrong}</div>
               )}
             </div>
 
-            <div className="col-12 col-lg-6">
-              <label htmlFor="correctApproach" className="form-label">
-                Correct Approach <small className="text-muted fw-normal">(Optimal method)</small>
+            <div className="col-12 col-md-6">
+              <label htmlFor="correctApproach" className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
+                Correct Approach <span className="text-muted fw-normal">(Optimal method or code snippet)</span>
               </label>
               <textarea
                 id="correctApproach"
                 name="correctApproach"
                 rows="4"
-                className="form-control"
-                placeholder="Describe the optimal algorithm, invariant, or data structure pattern..."
+                className="form-control form-control-sm"
+                placeholder="Describe the optimal invariant, dynamic programming state, or paste code..."
                 value={formData.correctApproach}
                 onChange={handleChange}
               />
             </div>
 
-            <div className="col-12 col-lg-6">
-              <label htmlFor="whatToChangeNextTime" className="form-label">
-                What will I change next time? <span className="text-danger">*</span>
+            <div className="col-12 col-md-6">
+              <label htmlFor="whatToChangeNextTime" className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
+                Next-Time Strategy <span style={{ color: 'var(--lc-error)' }}>*</span>
               </label>
               <textarea
                 id="whatToChangeNextTime"
                 name="whatToChangeNextTime"
                 rows="4"
-                className={`form-control ${errors.whatToChangeNextTime ? 'is-invalid' : ''}`}
-                placeholder="Key trigger or rule: 'Whenever I see X, test Y and remember Z'..."
+                className={`form-control form-control-sm ${errors.whatToChangeNextTime ? 'is-invalid' : ''}`}
+                placeholder="Trigger/heuristic: 'Whenever array is sorted, think two pointers before binary search'..."
                 value={formData.whatToChangeNextTime}
                 onChange={handleChange}
                 required
               />
               {errors.whatToChangeNextTime && (
-                <div className="invalid-feedback">{errors.whatToChangeNextTime}</div>
+                <div className="invalid-feedback" style={{ fontSize: '0.72rem' }}>{errors.whatToChangeNextTime}</div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Section 4: Complexity & Review Tracking */}
-        <div className="custom-card p-4 p-md-5 mb-4">
-          <div className="mb-4 pb-2 border-bottom" style={{ borderColor: 'var(--border-color)' }}>
-            <h2 className="h5 fw-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-              4. Complexity, Review & Notes
+        {/* Section 4: Complexity, Review & Notes */}
+        <div className="lc-panel p-4 mb-4">
+          <div className="mb-3 pb-2 border-bottom" style={{ borderColor: 'var(--lc-border)' }}>
+            <h2 className="h6 fw-semibold mb-0" style={{ color: 'var(--lc-text-primary)' }}>
+              4. Complexity & Spaced Repetition
             </h2>
-            <small className="text-muted">Target asymptotic complexities and review schedule.</small>
+            <small className="text-muted" style={{ fontSize: '0.75rem' }}>
+              Record algorithmic asymptotic complexity and review schedule.
+            </small>
           </div>
 
-          <div className="row g-4">
+          <div className="row g-3">
             <div className="col-12 col-sm-6 col-md-3">
-              <label htmlFor="timeComplexity" className="form-label">
-                <Clock size={16} className="text-muted" /> Time Complexity
+              <label htmlFor="timeComplexity" className="form-label small mb-1 d-flex align-items-center gap-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
+                <Clock size={12} /> Time Complexity
               </label>
               <input
                 type="text"
                 id="timeComplexity"
                 name="timeComplexity"
-                className="form-control font-mono"
-                placeholder="e.g. O(n), O(log n)"
+                className="form-control form-control-sm font-mono"
+                placeholder="e.g. O(n log n)"
                 value={formData.timeComplexity}
                 onChange={handleChange}
               />
             </div>
 
             <div className="col-12 col-sm-6 col-md-3">
-              <label htmlFor="spaceComplexity" className="form-label">
-                <HardDrive size={16} className="text-muted" /> Space Complexity
+              <label htmlFor="spaceComplexity" className="form-label small mb-1 d-flex align-items-center gap-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
+                <HardDrive size={12} /> Space Complexity
               </label>
               <input
                 type="text"
                 id="spaceComplexity"
                 name="spaceComplexity"
-                className="form-control font-mono"
+                className="form-control form-control-sm font-mono"
                 placeholder="e.g. O(1), O(n)"
                 value={formData.spaceComplexity}
                 onChange={handleChange}
@@ -500,13 +529,13 @@ const MistakeForm = ({
 
             {isEdit && (
               <div className="col-12 col-sm-6 col-md-3">
-                <label htmlFor="reviewStatus" className="form-label">
+                <label htmlFor="reviewStatus" className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
                   Review Status
                 </label>
                 <select
                   id="reviewStatus"
                   name="reviewStatus"
-                  className="form-select"
+                  className="form-select form-select-sm"
                   value={formData.reviewStatus}
                   onChange={handleChange}
                 >
@@ -518,21 +547,24 @@ const MistakeForm = ({
             )}
 
             <div className={`col-12 col-sm-6 ${isEdit ? 'col-md-3' : 'col-md-6'}`}>
-              <label htmlFor="reviewDate" className="form-label">
+              <label htmlFor="reviewDate" className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
                 Review Date
               </label>
               <input
                 type="date"
                 id="reviewDate"
                 name="reviewDate"
-                className="form-control"
+                className="form-control form-control-sm"
                 value={formData.reviewDate}
                 onChange={handleChange}
               />
             </div>
 
             <div className="col-12">
-              <div className="form-check form-switch p-2 rounded-3" style={{ background: 'rgba(255, 255, 255, 0.03)' }}>
+              <div 
+                className="form-check form-switch p-2 rounded" 
+                style={{ backgroundColor: 'var(--lc-bg-main)', border: '1px solid var(--lc-border)' }}
+              >
                 <input
                   className="form-check-input ms-0 me-3"
                   type="checkbox"
@@ -542,25 +574,25 @@ const MistakeForm = ({
                   onChange={handleChange}
                   style={{ cursor: 'pointer' }}
                 />
-                <label className="form-check-label fw-semibold" htmlFor="solvedIndependently" style={{ cursor: 'pointer', color: 'var(--text-primary)' }}>
+                <label className="form-check-label small fw-medium" htmlFor="solvedIndependently" style={{ cursor: 'pointer', color: 'var(--lc-text-primary)' }}>
                   Solved independently after review
                 </label>
-                <small className="d-block text-muted ms-5" style={{ fontSize: '0.8rem' }}>
-                  Check this if you were able to re-implement the optimal solution without consulting external solutions.
+                <small className="d-block text-muted ms-4" style={{ fontSize: '0.75rem' }}>
+                  Toggle on if you re-coded and passed all test cases independently without viewing hints.
                 </small>
               </div>
             </div>
 
             <div className="col-12">
-              <label htmlFor="notes" className="form-label">
-                Additional Notes & Edge Cases
+              <label htmlFor="notes" className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
+                Retrospective Notes & Edge Cases
               </label>
               <textarea
                 id="notes"
                 name="notes"
-                rows="3"
-                className="form-control"
-                placeholder="Any special trick, caveat, related problems, or interview context..."
+                rows="2"
+                className="form-control form-control-sm"
+                placeholder="Any corner cases, company tags, interview reflections, or related problem numbers..."
                 value={formData.notes}
                 onChange={handleChange}
               />
@@ -568,11 +600,11 @@ const MistakeForm = ({
           </div>
         </div>
 
-        {/* Bottom Action Bar */}
-        <div className="d-flex align-items-center justify-content-between py-3 mb-5">
+        {/* Bottom Action Footer */}
+        <div className="d-flex align-items-center justify-content-between py-2 mb-4">
           <button 
             type="button" 
-            className="btn btn-secondary-custom"
+            className="btn btn-sm btn-lc-secondary"
             onClick={handleCancelClick}
           >
             Cancel
@@ -581,7 +613,7 @@ const MistakeForm = ({
           <div className="d-flex align-items-center gap-2">
             <button 
               type="button" 
-              className="btn btn-secondary-custom"
+              className="btn btn-sm btn-lc-secondary"
               onClick={handleResetClick}
               disabled={isLoading || !isDirty}
             >
@@ -589,13 +621,11 @@ const MistakeForm = ({
             </button>
             <button 
               type="submit" 
-              className="btn btn-save px-4"
+              className="btn btn-sm btn-lc-primary px-4"
               disabled={isLoading}
             >
-              {isLoading ? (
-                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
-              ) : (
-                <Save size={18} className="me-2" />
+              {isLoading && (
+                <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true" />
               )}
               <span>{isEdit ? 'Update Mistake' : 'Save Mistake'}</span>
             </button>

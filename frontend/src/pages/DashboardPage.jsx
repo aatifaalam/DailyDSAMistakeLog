@@ -1,46 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
-  FileText, 
-  Calendar, 
   CheckCircle2, 
   AlertCircle, 
-  TrendingUp, 
+  Clock, 
   Plus, 
   ArrowRight,
   ExternalLink,
-  Eye,
-  Edit,
-  RotateCw
+  Code2,
+  Sparkles,
+  BookOpen,
+  RotateCw,
+  TrendingUp,
+  CheckSquare
 } from 'lucide-react';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend
-} from 'recharts';
 import { DashboardService, MistakeService } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import StatCard from '../components/StatCard';
+import ActivityHeatmap from '../components/ActivityHeatmap';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { MistakeTypeBadge, ReviewStatusBadge, TopicBadge, PlatformBadge } from '../components/BadgePill';
+import { MistakeTypeBadge, ReviewStatusBadge, TopicBadge } from '../components/BadgePill';
 import ReviewModal from '../components/ReviewModal';
-import { formatDate, getMistakeTypeColor } from '../utils/constants';
+import { formatDate } from '../utils/constants';
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { showToast } = useToast();
+  const { user } = useAuth();
+  const { addToast } = useToast();
 
   const [stats, setStats] = useState(null);
   const [mistakesByType, setMistakesByType] = useState([]);
   const [timeline, setTimeline] = useState([]);
+  const [dueMistakes, setDueMistakes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reviewModalMistake, setReviewModalMistake] = useState(null);
   const [updatingReview, setUpdatingReview] = useState(false);
@@ -48,17 +40,19 @@ const DashboardPage = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [statsData, typesData, timelineData] = await Promise.all([
+      const [statsData, typesData, timelineData, dueData] = await Promise.all([
         DashboardService.getStats(),
         DashboardService.getMistakesByType(),
-        DashboardService.getMistakesOverTime(14)
+        DashboardService.getMistakesOverTime(120),
+        MistakeService.getMistakes({ reviewStatus: 'NEEDS_ANOTHER_REVIEW', size: 5, sort: 'createdAt,desc' }).catch(() => ({ content: [] }))
       ]);
 
       setStats(statsData);
       setMistakesByType(typesData || []);
       setTimeline(timelineData || []);
+      setDueMistakes(dueData?.content || []);
     } catch (err) {
-      showToast({ message: err.message, type: 'error' });
+      addToast(err.message || 'Failed to load dashboard data', 'error');
     } finally {
       setLoading(false);
     }
@@ -72,340 +66,321 @@ const DashboardPage = () => {
     try {
       setUpdatingReview(true);
       await MistakeService.updateReview(reviewModalMistake.id, reviewData);
-      showToast({ message: 'Review status successfully updated!', type: 'success' });
+      addToast('Review status updated successfully', 'success');
       setReviewModalMistake(null);
       fetchDashboardData();
     } catch (err) {
-      showToast({ message: err.message, type: 'error' });
+      addToast(err.message || 'Failed to update review status', 'error');
     } finally {
       setUpdatingReview(false);
     }
   };
 
-  if (loading) {
-    return <LoadingSpinner text="Fetching dashboard metrics from MySQL..." />;
+  if (loading && !stats) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
+        <LoadingSpinner message="Loading developer workspace..." />
+      </div>
+    );
   }
 
-  // Filter out zero-count mistake types for cleaner pie chart
-  const activeMistakeTypes = mistakesByType.filter(t => t.count > 0);
+  const total = stats?.totalMistakes || 0;
+  const reviewed = stats?.reviewedCount || 0;
+  const needsReview = stats?.needsReviewCount || 0;
+  const completionRate = total > 0 ? Math.round((reviewed / total) * 100) : 0;
+  const recentMistakes = stats?.recentlyAddedMistakes || [];
 
   return (
-    <div>
-      <ReviewModal
-        isOpen={Boolean(reviewModalMistake)}
-        mistake={reviewModalMistake}
-        isLoading={updatingReview}
-        onClose={() => setReviewModalMistake(null)}
-        onSave={handleSaveReview}
-      />
-
-      {/* Top Welcome / Action Banner */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-        <div>
-          <h2 className="h4 fw-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-            DSA Mistake Dashboard
-          </h2>
-          <p className="text-muted mb-0 small">
-            Track patterns, review past mistakes, and build algorithmic intuition.
-          </p>
+    <div className="container-fluid px-0" style={{ maxWidth: '1280px' }}>
+      {/* LeetCode Profile Header */}
+      <div className="lc-panel mb-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div className="d-flex align-items-center gap-3">
+          <div 
+            className="rounded d-flex align-items-center justify-content-center fw-bold"
+            style={{ 
+              width: '44px', 
+              height: '44px', 
+              fontSize: '18px',
+              backgroundColor: 'rgba(255, 161, 22, 0.15)', 
+              color: 'var(--lc-accent)',
+              border: '1px solid rgba(255, 161, 22, 0.3)'
+            }}
+          >
+            {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+          </div>
+          <div>
+            <div className="d-flex align-items-center gap-2">
+              <h1 className="h6 fw-bold mb-0" style={{ color: 'var(--lc-text-primary)', fontSize: '16px' }}>
+                {user?.name || 'Developer'}
+              </h1>
+              <span className="badge" style={{ backgroundColor: 'var(--lc-bg-secondary)', color: 'var(--lc-text-secondary)', border: '1px solid var(--lc-border)', fontSize: '11px' }}>
+                DSA Workspace
+              </span>
+            </div>
+            <div className="text-muted" style={{ fontSize: '12px' }}>
+              {user?.email} • Systematic mistake tracking and invariant internalization
+            </div>
+          </div>
         </div>
 
         <div className="d-flex align-items-center gap-2">
           <button 
-            className="btn btn-secondary-custom d-inline-flex align-items-center gap-2"
+            className="btn btn-lc-secondary btn-sm"
             onClick={fetchDashboardData}
             title="Refresh statistics"
           >
-            <RotateCw size={16} />
-            <span className="d-none d-sm-inline">Refresh</span>
+            <RotateCw size={13} />
+            <span>Refresh</span>
           </button>
-
           <button 
-            className="btn btn-save d-inline-flex align-items-center gap-2 px-3 py-2"
+            className="btn btn-lc-primary btn-sm"
             onClick={() => navigate('/mistakes/new')}
           >
-            <Plus size={18} />
-            <span>Add New Mistake</span>
+            <Plus size={14} />
+            <span>Record Mistake</span>
           </button>
         </div>
       </div>
 
-      {/* Metric Cards Row */}
-      <div className="row g-3 mb-4">
-        <div className="col-12 col-sm-6 col-xl-3">
-          <StatCard
-            title="Total Mistakes"
-            value={stats?.totalMistakes}
-            subtitle="Persisted in database"
-            icon={FileText}
-            color="#6366f1"
-            bgColor="rgba(99, 102, 241, 0.14)"
+      {/* 4 Compact LeetCode Stat Panels */}
+      <div className="row g-2 mb-3">
+        <div className="col-6 col-lg-3">
+          <StatCard 
+            title="Total Recorded"
+            value={total}
+            subtitle={`${stats?.mistakesThisWeek || 0} this week`}
+            icon={BookOpen}
+            color="var(--lc-text-primary)"
+            bgColor="var(--lc-bg-secondary)"
           />
         </div>
-
-        <div className="col-12 col-sm-6 col-xl-3">
-          <StatCard
-            title="Recorded This Week"
-            value={stats?.mistakesThisWeek}
-            subtitle="Past 7 days"
-            icon={Calendar}
-            color="#3b82f6"
-            bgColor="rgba(59, 130, 246, 0.14)"
-          />
-        </div>
-
-        <div className="col-12 col-sm-6 col-xl-3">
-          <StatCard
+        <div className="col-6 col-lg-3">
+          <StatCard 
             title="Problems Reviewed"
-            value={stats?.reviewedCount}
-            subtitle={`${stats?.needsReviewCount || 0} still needing review`}
+            value={reviewed}
+            subtitle="Internalized invariants"
             icon={CheckCircle2}
-            color="#10b981"
-            bgColor="rgba(16, 185, 129, 0.14)"
+            color="var(--lc-success)"
+            bgColor="var(--lc-success-subtle)"
           />
         </div>
-
-        <div className="col-12 col-sm-6 col-xl-3">
-          <StatCard
-            title="Most Frequent Mistake"
-            value={stats?.mostFrequentMistakeTypeLabel || 'None'}
-            subtitle="Top focus area for practice"
+        <div className="col-6 col-lg-3">
+          <StatCard 
+            title="Awaiting Review"
+            value={needsReview}
+            subtitle="Queue pending attention"
+            icon={Clock}
+            color="var(--lc-accent)"
+            bgColor="var(--lc-accent-subtle)"
+          />
+        </div>
+        <div className="col-6 col-lg-3">
+          <StatCard 
+            title="Completion Rate"
+            value={`${completionRate}%`}
+            subtitle={`${reviewed} / ${total} solved`}
             icon={TrendingUp}
-            color="#f59e0b"
-            bgColor="rgba(245, 158, 11, 0.14)"
+            color="var(--lc-info)"
+            bgColor="var(--lc-info-subtle)"
           />
         </div>
       </div>
 
-      {/* Analytics Charts Row */}
-      <div className="row g-4 mb-4">
-        {/* Timeline Area Chart */}
-        <div className="col-12 col-lg-7">
-          <div className="custom-card p-4 h-100">
-            <div className="d-flex align-items-center justify-content-between mb-3">
-              <div>
-                <h3 className="h6 fw-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-                  Mistakes Recorded Over Time
-                </h3>
-                <small className="text-muted">Daily mistake trend (Past 14 days)</small>
-              </div>
-            </div>
-
-            <div style={{ width: '100%', height: 260 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={timeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.5}/>
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="var(--text-muted)" 
-                    fontSize={11}
-                    tickFormatter={(val) => {
-                      if (!val) return '';
-                      const parts = val.split('-');
-                      return parts.length >= 3 ? `${parts[1]}/${parts[2]}` : val;
-                    }}
-                  />
-                  <YAxis stroke="var(--text-muted)" fontSize={11} allowDecimals={false} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'var(--bg-card)', 
-                      borderColor: 'var(--border-color)',
-                      borderRadius: '8px',
-                      color: 'var(--text-primary)'
-                    }} 
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="count" 
-                    name="Mistakes"
-                    stroke="#6366f1" 
-                    strokeWidth={2.5}
-                    fillOpacity={1} 
-                    fill="url(#colorCount)" 
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
-        {/* Categories Distribution Donut Chart */}
-        <div className="col-12 col-lg-5">
-          <div className="custom-card p-4 h-100">
-            <div className="d-flex align-items-center justify-content-between mb-3">
-              <div>
-                <h3 className="h6 fw-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-                  Mistake Categories Distribution
-                </h3>
-                <small className="text-muted">Breakdown of root causes</small>
-              </div>
-            </div>
-
-            {activeMistakeTypes.length === 0 ? (
-              <div className="text-center py-5 text-muted small">
-                No mistake category data recorded yet.
-              </div>
-            ) : (
-              <div style={{ width: '100%', height: 260 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={activeMistakeTypes}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={4}
-                      dataKey="count"
-                      nameKey="label"
-                    >
-                      {activeMistakeTypes.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={getMistakeTypeColor(entry.mistakeType)} 
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'var(--bg-card)', 
-                        borderColor: 'var(--border-color)',
-                        borderRadius: '8px',
-                        color: 'var(--text-primary)'
-                      }} 
-                    />
-                    <Legend 
-                      verticalAlign="bottom" 
-                      height={40}
-                      formatter={(value) => <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>{value}</span>}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-        </div>
+      {/* LeetCode Activity Calendar Heatmap */}
+      <div className="mb-3">
+        <ActivityHeatmap timeline={timeline} days={120} />
       </div>
 
-      {/* Recently Added Mistakes Table */}
-      <div className="custom-card p-4">
-        <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom" style={{ borderColor: 'var(--border-color)' }}>
-          <div>
-            <h3 className="h6 fw-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-              Recently Added Mistakes
-            </h3>
-            <small className="text-muted">Recent entries logged in your system</small>
+      {/* Mistake Category Summary */}
+      <div className="lc-panel mb-3">
+        <div className="d-flex align-items-center justify-content-between mb-3">
+          <div className="d-flex align-items-center gap-2">
+            <Sparkles size={16} style={{ color: 'var(--lc-accent)' }} />
+            <span className="fw-semibold" style={{ color: 'var(--lc-text-primary)', fontSize: '13px' }}>
+              Failure Archetype Breakdown
+            </span>
           </div>
-          <Link 
-            to="/mistakes" 
-            className="btn btn-sm btn-secondary-custom d-inline-flex align-items-center gap-1 text-decoration-none"
-          >
-            <span>View All</span>
-            <ArrowRight size={15} />
+          <Link to="/analytics" className="text-decoration-none d-flex align-items-center gap-1" style={{ fontSize: '12px' }}>
+            <span>Detailed Analytics</span>
+            <ArrowRight size={12} />
           </Link>
         </div>
 
-        {(!stats?.recentlyAddedMistakes || stats.recentlyAddedMistakes.length === 0) ? (
-          <div className="empty-state py-4">
-            <AlertCircle size={32} className="mb-2 text-muted" />
-            <p className="mb-2">No mistake logs recorded yet.</p>
-            <button 
-              className="btn btn-save btn-sm"
-              onClick={() => navigate('/mistakes/new')}
-            >
-              Add Your First Mistake
-            </button>
-          </div>
-        ) : (
-          <div className="table-responsive">
-            <table className="table custom-table">
-              <thead>
-                <tr>
-                  <th>Problem Name</th>
-                  <th>Topic</th>
-                  <th>Mistake Type</th>
-                  <th>Review Status</th>
-                  <th>Recorded</th>
-                  <th className="text-end">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.recentlyAddedMistakes.map((mistake) => (
-                  <tr key={mistake.id}>
-                    <td>
-                      <div className="fw-semibold" style={{ color: 'var(--text-primary)' }}>
-                        <Link 
-                          to={`/mistakes/${mistake.id}`} 
-                          className="text-decoration-none text-reset hover-underline"
-                        >
-                          {mistake.problemName}
-                        </Link>
-                      </div>
-                      <div className="d-flex align-items-center gap-2 mt-1">
-                        <PlatformBadge platform={mistake.platform} />
-                        {mistake.problemUrl && (
-                          <a 
-                            href={mistake.problemUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="text-muted text-decoration-none d-inline-flex align-items-center"
-                            title="Open external problem link"
-                          >
-                            <ExternalLink size={13} />
-                          </a>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <TopicBadge topic={mistake.topic} />
-                    </td>
-                    <td>
-                      <MistakeTypeBadge type={mistake.mistakeType} />
-                    </td>
-                    <td>
-                      <ReviewStatusBadge status={mistake.reviewStatus} />
-                    </td>
-                    <td>
-                      <small className="text-muted">{formatDate(mistake.createdAt)}</small>
-                    </td>
-                    <td className="text-end">
-                      <div className="d-inline-flex align-items-center gap-1">
-                        <button
-                          className="btn btn-sm btn-secondary-custom p-1"
-                          onClick={() => setReviewModalMistake(mistake)}
-                          title="Quick Review"
-                        >
-                          <CheckCircle2 size={16} className="text-success" />
-                        </button>
-                        <Link
-                          to={`/mistakes/${mistake.id}`}
-                          className="btn btn-sm btn-secondary-custom p-1 text-decoration-none"
-                          title="View Details"
-                        >
-                          <Eye size={16} />
-                        </Link>
-                        <Link
-                          to={`/mistakes/${mistake.id}/edit`}
-                          className="btn btn-sm btn-secondary-custom p-1 text-decoration-none"
-                          title="Edit Mistake"
-                        >
-                          <Edit size={16} />
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="row g-2">
+          {mistakesByType.map((item) => {
+            const count = item.count || 0;
+            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+            return (
+              <div key={item.mistakeType} className="col-6 col-md-4 col-lg">
+                <div 
+                  className="p-2 rounded" 
+                  style={{ 
+                    backgroundColor: 'var(--lc-bg-secondary)', 
+                    border: '1px solid var(--lc-border-subtle)' 
+                  }}
+                >
+                  <div className="d-flex justify-content-between align-items-center mb-1">
+                    <span className="text-truncate text-muted" style={{ fontSize: '11px', maxWidth: '110px' }}>
+                      {item.label}
+                    </span>
+                    <strong style={{ color: 'var(--lc-text-primary)', fontSize: '13px', fontFamily: 'var(--font-mono)' }}>
+                      {count}
+                    </strong>
+                  </div>
+                  <div className="progress" style={{ height: '3px', backgroundColor: 'var(--lc-border)' }}>
+                    <div 
+                      className="progress-bar" 
+                      style={{ 
+                        width: `${pct}%`, 
+                        backgroundColor: 'var(--lc-accent)' 
+                      }} 
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
+
+      {/* Dual Section: Recently Recorded & Due for Review */}
+      <div className="row g-3">
+        {/* Recently Added Section */}
+        <div className="col-12 col-lg-6">
+          <div className="lc-panel h-100 d-flex flex-column">
+            <div className="d-flex align-items-center justify-content-between mb-3">
+              <div className="d-flex align-items-center gap-2">
+                <BookOpen size={16} style={{ color: 'var(--lc-text-secondary)' }} />
+                <span className="fw-semibold" style={{ color: 'var(--lc-text-primary)', fontSize: '13px' }}>
+                  Recently Recorded Mistakes
+                </span>
+              </div>
+              <Link to="/mistakes" className="text-decoration-none d-flex align-items-center gap-1" style={{ fontSize: '12px' }}>
+                <span>Problemset</span>
+                <ArrowRight size={12} />
+              </Link>
+            </div>
+
+            <div className="flex-grow-1">
+              {recentMistakes.length === 0 ? (
+                <div className="text-center py-4 text-muted" style={{ fontSize: '12px' }}>
+                  No mistake records logged yet. Click "Record Mistake" to start.
+                </div>
+              ) : (
+                <div className="lc-table-container">
+                  <table className="lc-table">
+                    <thead>
+                      <tr>
+                        <th>Problem</th>
+                        <th>Topic</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentMistakes.map((mistake) => (
+                        <tr key={mistake.id} onClick={() => navigate(`/mistakes/${mistake.id}`)}>
+                          <td>
+                            <div className="fw-medium text-truncate" style={{ maxWidth: '180px', color: 'var(--lc-text-primary)' }}>
+                              {mistake.problemName}
+                            </div>
+                            <small className="text-muted" style={{ fontSize: '11px' }}>
+                              {formatDate(mistake.createdAt)}
+                            </small>
+                          </td>
+                          <td>
+                            <TopicBadge topic={mistake.topic} />
+                          </td>
+                          <td>
+                            <ReviewStatusBadge status={mistake.reviewStatus} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Due for Review Section */}
+        <div className="col-12 col-lg-6">
+          <div className="lc-panel h-100 d-flex flex-column">
+            <div className="d-flex align-items-center justify-content-between mb-3">
+              <div className="d-flex align-items-center gap-2">
+                <CheckSquare size={16} style={{ color: 'var(--lc-accent)' }} />
+                <span className="fw-semibold" style={{ color: 'var(--lc-text-primary)', fontSize: '13px' }}>
+                  Due for Review ({needsReview})
+                </span>
+              </div>
+              <Link to="/reviews" className="text-decoration-none d-flex align-items-center gap-1" style={{ fontSize: '12px' }}>
+                <span>Review Queue</span>
+                <ArrowRight size={12} />
+              </Link>
+            </div>
+
+            <div className="flex-grow-1">
+              {dueMistakes.length === 0 ? (
+                <div className="text-center py-4 text-muted" style={{ fontSize: '12px' }}>
+                  <CheckCircle2 size={24} className="text-success mb-2 d-block mx-auto" />
+                  All caught up! No problems currently awaiting review.
+                </div>
+              ) : (
+                <div className="lc-table-container">
+                  <table className="lc-table">
+                    <thead>
+                      <tr>
+                        <th>Problem</th>
+                        <th>Category</th>
+                        <th className="text-end">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dueMistakes.map((mistake) => (
+                        <tr key={mistake.id}>
+                          <td onClick={() => navigate(`/mistakes/${mistake.id}`)}>
+                            <div className="fw-medium text-truncate" style={{ maxWidth: '180px', color: 'var(--lc-text-primary)' }}>
+                              {mistake.problemName}
+                            </div>
+                            <small className="text-muted" style={{ fontSize: '11px' }}>
+                              {mistake.topic || 'General'}
+                            </small>
+                          </td>
+                          <td onClick={() => navigate(`/mistakes/${mistake.id}`)}>
+                            <MistakeTypeBadge type={mistake.mistakeType} />
+                          </td>
+                          <td className="text-end">
+                            <button
+                              className="btn btn-lc-success btn-sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setReviewModalMistake(mistake);
+                              }}
+                            >
+                              Review
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Review Modal */}
+      {reviewModalMistake && (
+        <ReviewModal
+          mistake={reviewModalMistake}
+          isOpen={!!reviewModalMistake}
+          onClose={() => setReviewModalMistake(null)}
+          onSave={handleSaveReview}
+          loading={updatingReview}
+        />
+      )}
     </div>
   );
 };

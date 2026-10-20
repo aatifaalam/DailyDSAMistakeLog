@@ -1,8 +1,10 @@
 package com.dsa.mistakelog.controller;
 
+import com.dsa.mistakelog.config.CurrentUserResolver;
 import com.dsa.mistakelog.dto.*;
 import com.dsa.mistakelog.entity.MistakeType;
 import com.dsa.mistakelog.entity.ReviewStatus;
+import com.dsa.mistakelog.entity.User;
 import com.dsa.mistakelog.service.MistakeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,10 +24,12 @@ import java.time.LocalDate;
 public class MistakeController {
 
     private final MistakeService mistakeService;
+    private final CurrentUserResolver currentUserResolver;
 
     @PostMapping
     public ResponseEntity<MistakeResponse> createMistake(@Valid @RequestBody CreateMistakeRequest request) {
-        MistakeResponse response = mistakeService.createMistake(request);
+        User currentUser = currentUserResolver.resolveCurrentUser();
+        MistakeResponse response = mistakeService.createMistake(request, currentUser);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
@@ -40,6 +44,7 @@ public class MistakeController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @PageableDefault(page = 0, size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
+        User currentUser = currentUserResolver.resolveCurrentUser();
         MistakeFilterCriteria criteria = MistakeFilterCriteria.builder()
                 .search(search)
                 .mistakeType(mistakeType)
@@ -50,13 +55,14 @@ public class MistakeController {
                 .endDate(endDate)
                 .build();
 
-        PageResponse<MistakeResponse> response = mistakeService.getMistakes(criteria, pageable);
+        PageResponse<MistakeResponse> response = mistakeService.getMistakes(currentUser, criteria, pageable);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<MistakeResponse> getMistakeById(@PathVariable Long id) {
-        MistakeResponse response = mistakeService.getMistakeById(id);
+        User currentUser = currentUserResolver.resolveCurrentUser();
+        MistakeResponse response = mistakeService.getMistakeById(id, currentUser);
         return ResponseEntity.ok(response);
     }
 
@@ -64,13 +70,15 @@ public class MistakeController {
     public ResponseEntity<MistakeResponse> updateMistake(
             @PathVariable Long id,
             @Valid @RequestBody UpdateMistakeRequest request) {
-        MistakeResponse response = mistakeService.updateMistake(id, request);
+        User currentUser = currentUserResolver.resolveCurrentUser();
+        MistakeResponse response = mistakeService.updateMistake(id, request, currentUser);
         return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteMistake(@PathVariable Long id) {
-        mistakeService.deleteMistake(id);
+        User currentUser = currentUserResolver.resolveCurrentUser();
+        mistakeService.deleteMistake(id, currentUser);
         return ResponseEntity.noContent().build();
     }
 
@@ -78,7 +86,8 @@ public class MistakeController {
     public ResponseEntity<MistakeResponse> updateReview(
             @PathVariable Long id,
             @Valid @RequestBody ReviewUpdateRequest request) {
-        MistakeResponse response = mistakeService.updateReview(id, request);
+        User currentUser = currentUserResolver.resolveCurrentUser();
+        MistakeResponse response = mistakeService.updateReview(id, request, currentUser);
         return ResponseEntity.ok(response);
     }
 }

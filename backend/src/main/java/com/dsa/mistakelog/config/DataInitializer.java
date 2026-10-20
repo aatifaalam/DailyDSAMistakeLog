@@ -4,10 +4,14 @@ import com.dsa.mistakelog.entity.Mistake;
 import com.dsa.mistakelog.entity.MistakeType;
 import com.dsa.mistakelog.entity.ReviewStatus;
 import com.dsa.mistakelog.repository.MistakeRepository;
+import com.dsa.mistakelog.entity.User;
+import com.dsa.mistakelog.entity.UserRole;
+import com.dsa.mistakelog.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -20,9 +24,14 @@ import java.util.List;
 public class DataInitializer implements CommandLineRunner {
 
     private final MistakeRepository mistakeRepository;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Value("${app.seed-data.enabled:true}")
     private boolean seedDataEnabled;
+
+    @Value("${app.migration.owner-email:system@dsamistakelog.com}")
+    private String systemOwnerEmail;
 
     @Override
     public void run(String... args) {
@@ -31,9 +40,21 @@ public class DataInitializer implements CommandLineRunner {
             return;
         }
 
+        // Ensure system user exists for seed data ownership
+        User systemUser = userRepository.findByEmailIgnoreCase(systemOwnerEmail)
+                .orElseGet(() -> userRepository.save(User.builder()
+                        .name("System User")
+                        .email(systemOwnerEmail.toLowerCase().trim())
+                        .password(passwordEncoder.encode("SystemUser@2026"))
+                        .role(UserRole.USER)
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build()));
+
         // Check if "Daily Temperatures" already exists
-        if (!mistakeRepository.existsByProblemNameIgnoreCase("Daily Temperatures")) {
+        if (!mistakeRepository.existsByProblemNameIgnoreCaseAndUser("Daily Temperatures", systemUser)) {
             Mistake dailyTemperatures = Mistake.builder()
+                    .user(systemUser)
                     .problemName("Daily Temperatures")
                     .platform("LeetCode")
                     .problemUrl("https://leetcode.com/problems/daily-temperatures/")
@@ -63,8 +84,9 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         // If table only has 1 or fewer items, seed a couple more realistic DSA items to populate dashboard analytics
-        if (mistakeRepository.count() <= 1) {
+        if (mistakeRepository.countByUser(systemUser) <= 1) {
             Mistake threeSum = Mistake.builder()
+                    .user(systemUser)
                     .problemName("3Sum")
                     .platform("LeetCode")
                     .problemUrl("https://leetcode.com/problems/3sum/")
@@ -85,6 +107,7 @@ public class DataInitializer implements CommandLineRunner {
                     .build();
 
             Mistake lruCache = Mistake.builder()
+                    .user(systemUser)
                     .problemName("LRU Cache")
                     .platform("LeetCode")
                     .problemUrl("https://leetcode.com/problems/lru-cache/")
@@ -105,6 +128,7 @@ public class DataInitializer implements CommandLineRunner {
                     .build();
 
             Mistake binarySearch = Mistake.builder()
+                    .user(systemUser)
                     .problemName("Search in Rotated Sorted Array")
                     .platform("LeetCode")
                     .problemUrl("https://leetcode.com/problems/search-in-rotated-sorted-array/")

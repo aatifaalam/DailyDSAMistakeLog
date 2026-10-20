@@ -14,15 +14,150 @@ import {
   Lightbulb,
   Sparkles,
   ShieldCheck,
-  RotateCcw
+  RotateCcw,
+  Check,
+  Copy,
+  ChevronRight,
+  Code2
 } from 'lucide-react';
 import { MistakeService } from '../services/api';
 import { useToast } from '../context/ToastContext';
-import LoadingSpinner from '../components/LoadingSpinner';
 import ConfirmationModal from '../components/ConfirmationModal';
 import ReviewModal from '../components/ReviewModal';
 import { MistakeTypeBadge, ReviewStatusBadge, TopicBadge, PlatformBadge } from '../components/BadgePill';
 import { formatDate, formatDateTime } from '../utils/constants';
+
+// Helper to render text with code blocks or formatted monospace
+const FormattedContent = ({ content, defaultText }) => {
+  const [copiedIndex, setCopiedIndex] = useState(null);
+
+  if (!content || !content.trim()) {
+    return <span className="text-muted fst-italic small">{defaultText || 'No details provided.'}</span>;
+  }
+
+  // Check if content contains fenced code blocks ```lang ... ```
+  const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  let blockIndex = 0;
+
+  while ((match = codeBlockRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({
+        type: 'text',
+        content: content.slice(lastIndex, match.index)
+      });
+    }
+    parts.push({
+      type: 'code',
+      lang: match[1] || 'code',
+      content: match[2],
+      id: blockIndex++
+    });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < content.length) {
+    parts.push({
+      type: 'text',
+      content: content.slice(lastIndex)
+    });
+  }
+
+  const handleCopy = (codeText, index) => {
+    navigator.clipboard.writeText(codeText);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  if (parts.length === 1 && parts[0].type === 'text') {
+    return (
+      <p 
+        className="mb-0" 
+        style={{ 
+          color: 'var(--lc-text-primary)', 
+          whiteSpace: 'pre-wrap', 
+          lineHeight: '1.7',
+          fontSize: '0.9rem' 
+        }}
+      >
+        {content}
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      {parts.map((part, i) => {
+        if (part.type === 'text') {
+          return (
+            <p 
+              key={i} 
+              className="mb-2" 
+              style={{ 
+                color: 'var(--lc-text-primary)', 
+                whiteSpace: 'pre-wrap', 
+                lineHeight: '1.7',
+                fontSize: '0.9rem' 
+              }}
+            >
+              {part.content}
+            </p>
+          );
+        }
+        return (
+          <div 
+            key={i} 
+            className="my-3 rounded overflow-hidden" 
+            style={{ 
+              backgroundColor: 'var(--lc-bg-main)', 
+              border: '1px solid var(--lc-border)' 
+            }}
+          >
+            <div 
+              className="d-flex align-items-center justify-content-between px-3 py-1 border-bottom"
+              style={{ backgroundColor: 'var(--lc-bg-sidebar)', borderColor: 'var(--lc-border)' }}
+            >
+              <span className="small text-muted font-mono" style={{ fontSize: '0.72rem' }}>
+                {part.lang}
+              </span>
+              <button 
+                type="button" 
+                className="btn btn-link text-muted p-0 d-inline-flex align-items-center gap-1 text-decoration-none"
+                onClick={() => handleCopy(part.content, part.id)}
+                style={{ fontSize: '0.72rem' }}
+              >
+                {copiedIndex === part.id ? (
+                  <>
+                    <Check size={12} style={{ color: 'var(--lc-success)' }} />
+                    <span style={{ color: 'var(--lc-success)' }}>Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={12} />
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <pre 
+              className="p-3 mb-0 font-mono" 
+              style={{ 
+                color: '#e6edf3', 
+                fontSize: '0.85rem', 
+                overflowX: 'auto',
+                lineHeight: '1.5' 
+              }}
+            >
+              <code>{part.content}</code>
+            </pre>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 const MistakeDetailPage = () => {
   const { id } = useParams();
@@ -31,6 +166,7 @@ const MistakeDetailPage = () => {
 
   const [mistake, setMistake] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('ALL'); // 'ALL' | 'ANALYSIS' | 'COMPLEXITY' | 'REVIEW'
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -81,8 +217,31 @@ const MistakeDetailPage = () => {
     }
   };
 
+  const handleQuickReviewStatus = async (status) => {
+    try {
+      const reviewData = {
+        reviewStatus: status,
+        reviewDate: status === 'REVIEWED' ? new Date().toISOString().split('T')[0] : (mistake.reviewDate || null),
+        notes: mistake.notes
+      };
+      const updated = await MistakeService.updateReview(id, reviewData);
+      setMistake(updated);
+      showToast({ 
+        message: status === 'REVIEWED' ? 'Marked as Reviewed' : 'Scheduled for another review', 
+        type: 'success' 
+      });
+    } catch (err) {
+      showToast({ message: err.message, type: 'error' });
+    }
+  };
+
   if (loading) {
-    return <LoadingSpinner text="Loading mistake details..." />;
+    return (
+      <div className="lc-panel p-5 text-center">
+        <div className="spinner-border spinner-border-sm text-warning mb-2" role="status" />
+        <p className="small text-muted mb-0">Loading problem workspace...</p>
+      </div>
+    );
   }
 
   if (!mistake) return null;
@@ -110,45 +269,73 @@ const MistakeDetailPage = () => {
         onSave={handleSaveReview}
       />
 
-      {/* Top Navigation Bar */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-        <button 
-          className="btn btn-secondary-custom d-inline-flex align-items-center gap-2"
-          onClick={() => navigate('/mistakes')}
-        >
-          <ArrowLeft size={18} />
-          <span>Back to Mistakes</span>
-        </button>
-
+      {/* Breadcrumb / Top Bar */}
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
         <div className="d-flex align-items-center gap-2">
-          <button
-            className="btn btn-save d-inline-flex align-items-center gap-2 px-3"
-            onClick={() => setShowReviewModal(true)}
+          <button 
+            className="btn btn-sm btn-lc-secondary d-inline-flex align-items-center gap-1"
+            onClick={() => navigate('/mistakes')}
           >
-            <CheckCircle2 size={18} />
-            <span>Review Mistake</span>
+            <ArrowLeft size={14} />
+            <span>Problemset</span>
+          </button>
+          <span style={{ color: 'var(--lc-text-muted)' }}>/</span>
+          <span className="small text-muted font-mono">{mistake.topic || 'DSA'}</span>
+          <span style={{ color: 'var(--lc-text-muted)' }}>/</span>
+          <span className="small fw-medium" style={{ color: 'var(--lc-text-primary)' }}>
+            {mistake.problemName}
+          </span>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="d-flex align-items-center gap-2">
+          {mistake.reviewStatus !== 'REVIEWED' ? (
+            <button
+              className="btn btn-sm btn-lc-primary d-inline-flex align-items-center gap-1"
+              onClick={() => handleQuickReviewStatus('REVIEWED')}
+            >
+              <Check size={14} />
+              <span>Mark Reviewed</span>
+            </button>
+          ) : (
+            <button
+              className="btn btn-sm btn-lc-secondary d-inline-flex align-items-center gap-1"
+              onClick={() => handleQuickReviewStatus('NEEDS_ANOTHER_REVIEW')}
+            >
+              <RotateCcw size={13} style={{ color: 'var(--lc-accent)' }} />
+              <span>Schedule Next Review</span>
+            </button>
+          )}
+
+          <button
+            className="btn btn-sm btn-lc-secondary d-inline-flex align-items-center gap-1"
+            onClick={() => setShowReviewModal(true)}
+            title="Edit review notes & status"
+          >
+            <FileText size={14} />
+            <span className="d-none d-sm-inline">Review Notes</span>
           </button>
 
           <Link
             to={`/mistakes/${id}/edit`}
-            className="btn btn-secondary-custom d-inline-flex align-items-center gap-2 text-decoration-none"
+            className="btn btn-sm btn-lc-secondary d-inline-flex align-items-center gap-1 text-decoration-none"
           >
-            <Edit size={17} />
-            <span>Edit</span>
+            <Edit size={14} />
+            <span className="d-none d-sm-inline">Edit</span>
           </Link>
 
           <button
-            className="btn btn-secondary-custom text-danger d-inline-flex align-items-center gap-2"
+            className="btn btn-sm btn-lc-secondary text-danger d-inline-flex align-items-center gap-1"
             onClick={() => setShowDeleteModal(true)}
+            title="Delete Mistake"
           >
-            <Trash2 size={17} />
-            <span>Delete</span>
+            <Trash2 size={14} />
           </button>
         </div>
       </div>
 
-      {/* Main Header Card */}
-      <div className="custom-card p-4 p-md-5 mb-4">
+      {/* Main Workspace Header (LeetCode Problem Header) */}
+      <div className="lc-panel p-4 mb-3">
         <div className="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
           <div>
             <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
@@ -158,7 +345,7 @@ const MistakeDetailPage = () => {
               <ReviewStatusBadge status={mistake.reviewStatus} />
             </div>
 
-            <h1 className="h3 fw-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+            <h1 className="h4 fw-bold mb-1" style={{ color: 'var(--lc-text-primary)' }}>
               {mistake.problemName}
             </h1>
 
@@ -167,189 +354,237 @@ const MistakeDetailPage = () => {
                 href={mistake.problemUrl} 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="text-decoration-none d-inline-flex align-items-center gap-1 small text-indigo"
-                style={{ color: '#818cf8' }}
+                className="text-decoration-none d-inline-flex align-items-center gap-1 small mt-1"
+                style={{ color: 'var(--lc-info)' }}
               >
-                <span>Open problem on {mistake.platform || 'Platform'}</span>
-                <ExternalLink size={14} />
+                <span>View on {mistake.platform || 'Platform'}</span>
+                <ExternalLink size={12} />
               </a>
             )}
           </div>
 
-          {/* Independent Resolution Flag */}
-          <div className="p-3 rounded-3" style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', minWidth: '220px' }}>
-            <div className="d-flex align-items-center gap-2 mb-1">
-              <ShieldCheck size={18} className={mistake.solvedIndependently ? 'text-success' : 'text-muted'} />
-              <span className="fw-semibold small" style={{ color: 'var(--text-primary)' }}>Independent Solve</span>
+          {/* Quick Metrics Badge */}
+          <div 
+            className="p-2 rounded text-end"
+            style={{ 
+              backgroundColor: 'var(--lc-bg-main)', 
+              border: '1px solid var(--lc-border)',
+              minWidth: '180px'
+            }}
+          >
+            <div className="d-flex align-items-center justify-content-end gap-1 mb-1">
+              <ShieldCheck size={14} style={{ color: mistake.solvedIndependently ? 'var(--lc-success)' : 'var(--lc-text-muted)' }} />
+              <span className="small fw-semibold" style={{ color: 'var(--lc-text-primary)', fontSize: '0.75rem' }}>
+                {mistake.solvedIndependently ? 'Solved Independently' : 'Needed Hints / Solution'}
+              </span>
             </div>
-            <span className={`badge ${mistake.solvedIndependently ? 'bg-success' : 'bg-secondary'}`}>
-              {mistake.solvedIndependently ? 'Yes — Solved Independently' : 'Needs More Independent Practice'}
-            </span>
+            <div className="font-mono text-muted" style={{ fontSize: '0.72rem' }}>
+              Logged: {formatDate(mistake.createdAt)}
+            </div>
           </div>
         </div>
 
-        {/* Complexity Badges and Timestamps */}
-        <div className="d-flex flex-wrap align-items-center gap-4 pt-3 border-top text-muted small" style={{ borderColor: 'var(--border-color)' }}>
-          {mistake.timeComplexity && (
-            <div className="d-flex align-items-center gap-1">
-              <Clock size={16} />
-              <span>Time: <strong className="font-mono" style={{ color: 'var(--text-primary)' }}>{mistake.timeComplexity}</strong></span>
-            </div>
-          )}
-
-          {mistake.spaceComplexity && (
-            <div className="d-flex align-items-center gap-1">
-              <HardDrive size={16} />
-              <span>Space: <strong className="font-mono" style={{ color: 'var(--text-primary)' }}>{mistake.spaceComplexity}</strong></span>
-            </div>
-          )}
+        {/* Complexity & Timestamps Strip */}
+        <div 
+          className="d-flex flex-wrap align-items-center gap-4 pt-3 border-top small" 
+          style={{ borderColor: 'var(--lc-border)' }}
+        >
+          <div className="d-flex align-items-center gap-1">
+            <Clock size={14} className="text-muted" />
+            <span className="text-muted">Time:</span>
+            <span className="font-mono fw-semibold" style={{ color: 'var(--lc-text-primary)' }}>
+              {mistake.timeComplexity || 'Not specified'}
+            </span>
+          </div>
 
           <div className="d-flex align-items-center gap-1">
-            <Calendar size={16} />
-            <span>Recorded: {formatDate(mistake.createdAt)}</span>
+            <HardDrive size={14} className="text-muted" />
+            <span className="text-muted">Space:</span>
+            <span className="font-mono fw-semibold" style={{ color: 'var(--lc-text-primary)' }}>
+              {mistake.spaceComplexity || 'Not specified'}
+            </span>
           </div>
 
           {mistake.reviewDate && (
-            <div className="d-flex align-items-center gap-1 text-success">
-              <CheckCircle2 size={16} />
-              <span>Reviewed on: {formatDate(mistake.reviewDate)}</span>
+            <div className="d-flex align-items-center gap-1" style={{ color: 'var(--lc-success)' }}>
+              <CheckCircle2 size={14} />
+              <span>Last reviewed: {formatDate(mistake.reviewDate)}</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* The 4 Distinct Retrospective Sections */}
-      <div className="row g-4 mb-4">
-        {/* Section 1: Original Approach */}
-        <div className="col-12 col-lg-6">
-          <div className="custom-card p-4 h-100" style={{ borderLeft: '4px solid #6366f1' }}>
-            <div className="d-flex align-items-center gap-2 mb-3">
-              <div className="p-2 rounded-2" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8' }}>
-                <Lightbulb size={20} />
-              </div>
-              <h2 className="h6 fw-bold mb-0" style={{ color: 'var(--text-primary)' }}>
-                My First Approach
-              </h2>
-            </div>
-            <p className="mb-0 text-secondary" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-              {mistake.firstApproach}
-            </p>
-          </div>
-        </div>
-
-        {/* Section 2: Why was it wrong? */}
-        <div className="col-12 col-lg-6">
-          <div className="custom-card p-4 h-100" style={{ borderLeft: '4px solid #ef4444' }}>
-            <div className="d-flex align-items-center gap-2 mb-3">
-              <div className="p-2 rounded-2" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171' }}>
-                <AlertTriangle size={20} />
-              </div>
-              <h2 className="h6 fw-bold mb-0" style={{ color: 'var(--text-primary)' }}>
-                Why was it wrong?
-              </h2>
-            </div>
-            <p className="mb-0 text-secondary" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-              {mistake.whyWrong}
-            </p>
-          </div>
-        </div>
-
-        {/* Section 3: Correct Approach */}
-        <div className="col-12 col-lg-6">
-          <div className="custom-card p-4 h-100" style={{ borderLeft: '4px solid #10b981' }}>
-            <div className="d-flex align-items-center gap-2 mb-3">
-              <div className="p-2 rounded-2" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399' }}>
-                <CheckCircle2 size={20} />
-              </div>
-              <h2 className="h6 fw-bold mb-0" style={{ color: 'var(--text-primary)' }}>
-                The Corrected Approach
-              </h2>
-            </div>
-            <p className="mb-0 text-secondary" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-              {mistake.correctApproach || 'No optimal approach recorded yet.'}
-            </p>
-          </div>
-        </div>
-
-        {/* Section 4: What I will change next time */}
-        <div className="col-12 col-lg-6">
-          <div className="custom-card p-4 h-100" style={{ borderLeft: '4px solid #f59e0b' }}>
-            <div className="d-flex align-items-center gap-2 mb-3">
-              <div className="p-2 rounded-2" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24' }}>
-                <Sparkles size={20} />
-              </div>
-              <h2 className="h6 fw-bold mb-0" style={{ color: 'var(--text-primary)' }}>
-                What I will change next time?
-              </h2>
-            </div>
-            <p className="mb-0 text-secondary" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-              {mistake.whatToChangeNextTime}
-            </p>
-          </div>
-        </div>
+      {/* LeetCode Workspace Tab Navigation */}
+      <div className="d-flex gap-2 mb-3 border-bottom pb-2" style={{ borderColor: 'var(--lc-border)' }}>
+        <button
+          type="button"
+          className={`btn btn-sm ${activeTab === 'ALL' ? 'btn-lc-primary' : 'btn-lc-secondary'}`}
+          onClick={() => setActiveTab('ALL')}
+        >
+          All Sections
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${activeTab === 'ANALYSIS' ? 'btn-lc-primary' : 'btn-lc-secondary'}`}
+          onClick={() => setActiveTab('ANALYSIS')}
+        >
+          Solution Breakdown
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${activeTab === 'COMPLEXITY' ? 'btn-lc-primary' : 'btn-lc-secondary'}`}
+          onClick={() => setActiveTab('COMPLEXITY')}
+        >
+          Complexity & Strategy
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${activeTab === 'REVIEW' ? 'btn-lc-primary' : 'btn-lc-secondary'}`}
+          onClick={() => setActiveTab('REVIEW')}
+        >
+          Review & Notes
+        </button>
       </div>
 
-      {/* Review Workflow & Notes Section */}
-      <div className="custom-card p-4 p-md-5 mb-4">
-        <div className="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom" style={{ borderColor: 'var(--border-color)' }}>
-          <div className="d-flex align-items-center gap-2">
-            <FileText size={20} className="text-muted" />
-            <h2 className="h6 fw-bold mb-0" style={{ color: 'var(--text-primary)' }}>
-              Review Status & Practice Notes
-            </h2>
-          </div>
-          <button 
-            className="btn btn-sm btn-indigo d-inline-flex align-items-center gap-2"
-            onClick={() => setShowReviewModal(true)}
-          >
-            <CheckCircle2 size={16} />
-            <span>Update Review Status</span>
-          </button>
-        </div>
-
-        <div className="row g-4">
-          <div className="col-12 col-md-4">
-            <small className="text-muted text-uppercase fw-bold d-block mb-1" style={{ fontSize: '0.72rem' }}>
-              Current Status
-            </small>
-            <ReviewStatusBadge status={mistake.reviewStatus} />
-          </div>
-
-          <div className="col-12 col-md-4">
-            <small className="text-muted text-uppercase fw-bold d-block mb-1" style={{ fontSize: '0.72rem' }}>
-              Last Review Date
-            </small>
-            <span className="fw-medium" style={{ color: 'var(--text-primary)' }}>
-              {mistake.reviewDate ? formatDate(mistake.reviewDate) : 'Not yet reviewed'}
-            </span>
-          </div>
-
-          <div className="col-12 col-md-4">
-            <small className="text-muted text-uppercase fw-bold d-block mb-1" style={{ fontSize: '0.72rem' }}>
-              Last Record Update
-            </small>
-            <span className="text-muted">
-              {formatDateTime(mistake.updatedAt)}
-            </span>
-          </div>
-
-          <div className="col-12">
-            <small className="text-muted text-uppercase fw-bold d-block mb-2" style={{ fontSize: '0.72rem' }}>
-              Retrospective Notes
-            </small>
-            <div className="p-3 rounded-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
-              {mistake.notes ? (
-                <p className="mb-0 text-secondary" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-                  {mistake.notes}
-                </p>
-              ) : (
-                <span className="text-muted fst-italic small">
-                  No additional notes or edge case remarks logged for this problem.
-                </span>
-              )}
+      {/* Sections Workspace */}
+      <div className="row g-3">
+        {/* Section 1: Original Approach */}
+        {(activeTab === 'ALL' || activeTab === 'ANALYSIS') && (
+          <div className="col-12 col-lg-6">
+            <div className="lc-panel p-3 h-100" style={{ borderLeft: '3px solid var(--lc-info)' }}>
+              <div className="d-flex align-items-center gap-2 mb-2">
+                <Lightbulb size={16} style={{ color: 'var(--lc-info)' }} />
+                <h2 className="h6 fw-semibold mb-0" style={{ color: 'var(--lc-text-primary)' }}>
+                  Section 1: Original Approach
+                </h2>
+              </div>
+              <FormattedContent content={mistake.firstApproach} defaultText="No initial approach recorded." />
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Section 2: Why It Failed */}
+        {(activeTab === 'ALL' || activeTab === 'ANALYSIS') && (
+          <div className="col-12 col-lg-6">
+            <div className="lc-panel p-3 h-100" style={{ borderLeft: '3px solid var(--lc-error)' }}>
+              <div className="d-flex align-items-center gap-2 mb-2">
+                <AlertTriangle size={16} style={{ color: 'var(--lc-error)' }} />
+                <h2 className="h6 fw-semibold mb-0" style={{ color: 'var(--lc-text-primary)' }}>
+                  Section 2: Why It Failed
+                </h2>
+              </div>
+              <FormattedContent content={mistake.whyWrong} defaultText="No failure explanation recorded." />
+            </div>
+          </div>
+        )}
+
+        {/* Section 3: Correct Approach */}
+        {(activeTab === 'ALL' || activeTab === 'ANALYSIS') && (
+          <div className="col-12">
+            <div className="lc-panel p-3" style={{ borderLeft: '3px solid var(--lc-success)' }}>
+              <div className="d-flex align-items-center gap-2 mb-2">
+                <CheckCircle2 size={16} style={{ color: 'var(--lc-success)' }} />
+                <h2 className="h6 fw-semibold mb-0" style={{ color: 'var(--lc-text-primary)' }}>
+                  Section 3: Correct Approach
+                </h2>
+              </div>
+              <FormattedContent content={mistake.correctApproach} defaultText="No optimal approach recorded." />
+            </div>
+          </div>
+        )}
+
+        {/* Section 4: Complexity Analysis */}
+        {(activeTab === 'ALL' || activeTab === 'COMPLEXITY') && (
+          <div className="col-12 col-lg-6">
+            <div className="lc-panel p-3 h-100" style={{ borderLeft: '3px solid var(--lc-accent)' }}>
+              <div className="d-flex align-items-center gap-2 mb-2">
+                <Code2 size={16} style={{ color: 'var(--lc-accent)' }} />
+                <h2 className="h6 fw-semibold mb-0" style={{ color: 'var(--lc-text-primary)' }}>
+                  Section 4: Complexity Analysis
+                </h2>
+              </div>
+              <div className="d-flex flex-column gap-2 mt-2">
+                <div className="d-flex align-items-center justify-content-between p-2 rounded" style={{ backgroundColor: 'var(--lc-bg-main)' }}>
+                  <span className="small text-muted">Time Complexity</span>
+                  <span className="font-mono fw-bold" style={{ color: 'var(--lc-accent)' }}>
+                    {mistake.timeComplexity || 'O(?)'}
+                  </span>
+                </div>
+                <div className="d-flex align-items-center justify-content-between p-2 rounded" style={{ backgroundColor: 'var(--lc-bg-main)' }}>
+                  <span className="small text-muted">Space Complexity</span>
+                  <span className="font-mono fw-bold" style={{ color: 'var(--lc-info)' }}>
+                    {mistake.spaceComplexity || 'O(?)'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Section 5: Next-Time Strategy */}
+        {(activeTab === 'ALL' || activeTab === 'COMPLEXITY') && (
+          <div className="col-12 col-lg-6">
+            <div className="lc-panel p-3 h-100" style={{ borderLeft: '3px solid #FFC01E' }}>
+              <div className="d-flex align-items-center gap-2 mb-2">
+                <Sparkles size={16} style={{ color: '#FFC01E' }} />
+                <h2 className="h6 fw-semibold mb-0" style={{ color: 'var(--lc-text-primary)' }}>
+                  Section 5: Next-Time Strategy
+                </h2>
+              </div>
+              <FormattedContent content={mistake.whatToChangeNextTime} defaultText="No next-time heuristics logged." />
+            </div>
+          </div>
+        )}
+
+        {/* Section 6: Review History & Notes */}
+        {(activeTab === 'ALL' || activeTab === 'REVIEW') && (
+          <div className="col-12">
+            <div className="lc-panel p-4" style={{ borderLeft: '3px solid var(--lc-text-muted)' }}>
+              <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom" style={{ borderColor: 'var(--lc-border)' }}>
+                <div className="d-flex align-items-center gap-2">
+                  <FileText size={16} className="text-muted" />
+                  <h2 className="h6 fw-semibold mb-0" style={{ color: 'var(--lc-text-primary)' }}>
+                    Section 6: Review History & Retrospective Notes
+                  </h2>
+                </div>
+                <button 
+                  className="btn btn-sm btn-lc-secondary"
+                  onClick={() => setShowReviewModal(true)}
+                >
+                  Update Review
+                </button>
+              </div>
+
+              <div className="row g-3">
+                <div className="col-12 col-md-4">
+                  <div className="small text-muted mb-1" style={{ fontSize: '0.75rem' }}>Current Review Status</div>
+                  <ReviewStatusBadge status={mistake.reviewStatus} />
+                </div>
+                <div className="col-12 col-md-4">
+                  <div className="small text-muted mb-1" style={{ fontSize: '0.75rem' }}>Review Date</div>
+                  <span className="small font-mono" style={{ color: 'var(--lc-text-primary)' }}>
+                    {mistake.reviewDate ? formatDate(mistake.reviewDate) : 'Not yet reviewed'}
+                  </span>
+                </div>
+                <div className="col-12 col-md-4">
+                  <div className="small text-muted mb-1" style={{ fontSize: '0.75rem' }}>Last Updated</div>
+                  <span className="small font-mono text-muted">
+                    {formatDateTime(mistake.updatedAt)}
+                  </span>
+                </div>
+                <div className="col-12">
+                  <div className="small text-muted mb-1" style={{ fontSize: '0.75rem' }}>Review Notes & Takeaways</div>
+                  <div 
+                    className="p-3 rounded" 
+                    style={{ backgroundColor: 'var(--lc-bg-main)', border: '1px solid var(--lc-border)' }}
+                  >
+                    <FormattedContent content={mistake.notes} defaultText="No additional review notes recorded." />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

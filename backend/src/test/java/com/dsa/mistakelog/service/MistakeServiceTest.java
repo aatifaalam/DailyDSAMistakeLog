@@ -4,6 +4,8 @@ import com.dsa.mistakelog.dto.*;
 import com.dsa.mistakelog.entity.Mistake;
 import com.dsa.mistakelog.entity.MistakeType;
 import com.dsa.mistakelog.entity.ReviewStatus;
+import com.dsa.mistakelog.entity.User;
+import com.dsa.mistakelog.entity.UserRole;
 import com.dsa.mistakelog.exception.ResourceNotFoundException;
 import com.dsa.mistakelog.repository.MistakeRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +29,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,12 +41,24 @@ class MistakeServiceTest {
     @InjectMocks
     private MistakeServiceImpl mistakeService;
 
+    private User sampleUser;
     private Mistake sampleMistake;
 
     @BeforeEach
     void setUp() {
+        sampleUser = User.builder()
+                .id(1L)
+                .name("Test User")
+                .email("user@example.com")
+                .password("hashed_password")
+                .role(UserRole.USER)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
         sampleMistake = Mistake.builder()
                 .id(1L)
+                .user(sampleUser)
                 .problemName("Two Sum")
                 .platform("LeetCode")
                 .problemUrl("https://leetcode.com/problems/two-sum/")
@@ -65,7 +80,7 @@ class MistakeServiceTest {
     }
 
     @Test
-    @DisplayName("Should create mistake successfully")
+    @DisplayName("Should create mistake successfully for user")
     void shouldCreateMistake() {
         CreateMistakeRequest request = CreateMistakeRequest.builder()
                 .problemName("Two Sum")
@@ -85,7 +100,7 @@ class MistakeServiceTest {
 
         when(mistakeRepository.save(any(Mistake.class))).thenReturn(sampleMistake);
 
-        MistakeResponse response = mistakeService.createMistake(request);
+        MistakeResponse response = mistakeService.createMistake(request, sampleUser);
 
         assertThat(response).isNotNull();
         assertThat(response.getId()).isEqualTo(1L);
@@ -96,11 +111,11 @@ class MistakeServiceTest {
     }
 
     @Test
-    @DisplayName("Should retrieve mistake by ID")
+    @DisplayName("Should retrieve mistake by ID and user")
     void shouldGetMistakeById() {
-        when(mistakeRepository.findById(1L)).thenReturn(Optional.of(sampleMistake));
+        when(mistakeRepository.findByIdAndUser(1L, sampleUser)).thenReturn(Optional.of(sampleMistake));
 
-        MistakeResponse response = mistakeService.getMistakeById(1L);
+        MistakeResponse response = mistakeService.getMistakeById(1L, sampleUser);
 
         assertThat(response).isNotNull();
         assertThat(response.getId()).isEqualTo(1L);
@@ -108,17 +123,17 @@ class MistakeServiceTest {
     }
 
     @Test
-    @DisplayName("Should throw ResourceNotFoundException when mistake ID does not exist")
+    @DisplayName("Should throw ResourceNotFoundException when mistake ID does not belong to user")
     void shouldThrowExceptionWhenMistakeNotFound() {
-        when(mistakeRepository.findById(999L)).thenReturn(Optional.empty());
+        when(mistakeRepository.findByIdAndUser(999L, sampleUser)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> mistakeService.getMistakeById(999L))
+        assertThatThrownBy(() -> mistakeService.getMistakeById(999L, sampleUser))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("999");
     }
 
     @Test
-    @DisplayName("Should update an existing mistake")
+    @DisplayName("Should update an existing mistake for user")
     void shouldUpdateMistake() {
         UpdateMistakeRequest updateRequest = UpdateMistakeRequest.builder()
                 .problemName("Two Sum - Optimized")
@@ -136,10 +151,10 @@ class MistakeServiceTest {
                 .reviewDate(LocalDate.now())
                 .build();
 
-        when(mistakeRepository.findById(1L)).thenReturn(Optional.of(sampleMistake));
+        when(mistakeRepository.findByIdAndUser(1L, sampleUser)).thenReturn(Optional.of(sampleMistake));
         when(mistakeRepository.save(any(Mistake.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        MistakeResponse response = mistakeService.updateMistake(1L, updateRequest);
+        MistakeResponse response = mistakeService.updateMistake(1L, updateRequest, sampleUser);
 
         assertThat(response).isNotNull();
         assertThat(response.getProblemName()).isEqualTo("Two Sum - Optimized");
@@ -148,18 +163,18 @@ class MistakeServiceTest {
     }
 
     @Test
-    @DisplayName("Should delete an existing mistake")
+    @DisplayName("Should delete an existing mistake for user")
     void shouldDeleteMistake() {
-        when(mistakeRepository.findById(1L)).thenReturn(Optional.of(sampleMistake));
+        when(mistakeRepository.findByIdAndUser(1L, sampleUser)).thenReturn(Optional.of(sampleMistake));
         doNothing().when(mistakeRepository).delete(sampleMistake);
 
-        mistakeService.deleteMistake(1L);
+        mistakeService.deleteMistake(1L, sampleUser);
 
         verify(mistakeRepository, times(1)).delete(sampleMistake);
     }
 
     @Test
-    @DisplayName("Should update review status and review date")
+    @DisplayName("Should update review status and review date for user")
     void shouldUpdateReviewStatus() {
         ReviewUpdateRequest reviewRequest = ReviewUpdateRequest.builder()
                 .reviewStatus(ReviewStatus.REVIEWED)
@@ -168,10 +183,10 @@ class MistakeServiceTest {
                 .solvedIndependently(true)
                 .build();
 
-        when(mistakeRepository.findById(1L)).thenReturn(Optional.of(sampleMistake));
+        when(mistakeRepository.findByIdAndUser(1L, sampleUser)).thenReturn(Optional.of(sampleMistake));
         when(mistakeRepository.save(any(Mistake.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        MistakeResponse response = mistakeService.updateReview(1L, reviewRequest);
+        MistakeResponse response = mistakeService.updateReview(1L, reviewRequest, sampleUser);
 
         assertThat(response).isNotNull();
         assertThat(response.getReviewStatus()).isEqualTo(ReviewStatus.REVIEWED);
@@ -180,17 +195,17 @@ class MistakeServiceTest {
     }
 
     @Test
-    @DisplayName("Should calculate dashboard stats accurately")
+    @DisplayName("Should calculate dashboard stats accurately scoped to user")
     void shouldReturnDashboardStats() {
-        when(mistakeRepository.count()).thenReturn(10L);
-        when(mistakeRepository.countByCreatedAtGreaterThanEqual(any(LocalDateTime.class))).thenReturn(4L);
-        when(mistakeRepository.countByReviewStatus(ReviewStatus.REVIEWED)).thenReturn(6L);
-        when(mistakeRepository.countByReviewStatusIn(anyList())).thenReturn(4L);
+        when(mistakeRepository.countByUser(sampleUser)).thenReturn(10L);
+        when(mistakeRepository.countByUserAndCreatedAtGreaterThanEqual(eq(sampleUser), any(LocalDateTime.class))).thenReturn(4L);
+        when(mistakeRepository.countByUserAndReviewStatus(sampleUser, ReviewStatus.REVIEWED)).thenReturn(6L);
+        when(mistakeRepository.countByUserAndReviewStatusIn(eq(sampleUser), anyList())).thenReturn(4L);
         List<Object[]> mockTypeGroup = java.util.Collections.singletonList(new Object[]{MistakeType.TIME_COMPLEXITY, 5L});
-        when(mistakeRepository.countGroupByMistakeType()).thenReturn(mockTypeGroup);
-        when(mistakeRepository.findTop5ByOrderByCreatedAtDesc()).thenReturn(List.of(sampleMistake));
+        when(mistakeRepository.countGroupByUserAndMistakeType(sampleUser)).thenReturn(mockTypeGroup);
+        when(mistakeRepository.findTop5ByUserOrderByCreatedAtDesc(sampleUser)).thenReturn(List.of(sampleMistake));
 
-        DashboardStatsResponse stats = mistakeService.getDashboardStats();
+        DashboardStatsResponse stats = mistakeService.getDashboardStats(sampleUser);
 
         assertThat(stats.getTotalMistakes()).isEqualTo(10L);
         assertThat(stats.getMistakesThisWeek()).isEqualTo(4L);
@@ -201,7 +216,7 @@ class MistakeServiceTest {
     }
 
     @Test
-    @DisplayName("Should paginate mistakes with filter criteria")
+    @DisplayName("Should paginate mistakes with filter criteria scoped to user")
     @SuppressWarnings("unchecked")
     void shouldGetPaginatedMistakes() {
         Page<Mistake> page = new PageImpl<>(List.of(sampleMistake), PageRequest.of(0, 10), 1);
@@ -212,7 +227,7 @@ class MistakeServiceTest {
                 .topic("Arrays")
                 .build();
 
-        PageResponse<MistakeResponse> response = mistakeService.getMistakes(criteria, PageRequest.of(0, 10));
+        PageResponse<MistakeResponse> response = mistakeService.getMistakes(sampleUser, criteria, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getTotalElements()).isEqualTo(1L);

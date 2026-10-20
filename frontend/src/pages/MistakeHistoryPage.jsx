@@ -9,10 +9,14 @@ import {
   Edit, 
   Trash2, 
   CheckCircle2, 
+  AlertCircle,
+  Minus,
   ExternalLink,
   Calendar,
   X,
-  FileSpreadsheet
+  FileSpreadsheet,
+  MoreVertical,
+  Check
 } from 'lucide-react';
 import { MistakeService } from '../services/api';
 import { useToast } from '../context/ToastContext';
@@ -25,7 +29,6 @@ import {
 } from '../utils/constants';
 import { MistakeTypeBadge, ReviewStatusBadge, TopicBadge, PlatformBadge } from '../components/BadgePill';
 import Pagination from '../components/Pagination';
-import LoadingSpinner from '../components/LoadingSpinner';
 import ConfirmationModal from '../components/ConfirmationModal';
 import ReviewModal from '../components/ReviewModal';
 
@@ -38,7 +41,7 @@ const MistakeHistoryPage = () => {
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(0);
-  const [size, setSize] = useState(10);
+  const [size, setSize] = useState(15);
   const [sort, setSort] = useState('createdAt,desc');
 
   // Filters state
@@ -111,7 +114,6 @@ const MistakeHistoryPage = () => {
       await MistakeService.deleteMistake(deleteTarget.id);
       showToast({ message: `"${deleteTarget.problemName}" deleted successfully`, type: 'success' });
       setDeleteTarget(null);
-      // If last item on current page, go back a page
       if (mistakes.length === 1 && page > 0) {
         setPage(page - 1);
       } else {
@@ -139,8 +141,8 @@ const MistakeHistoryPage = () => {
     }
   };
 
-  // Quick toggle between REVIEWED and NOT_REVIEWED
-  const handleQuickToggleReview = async (mistake) => {
+  const handleQuickToggleReview = async (e, mistake) => {
+    e.stopPropagation();
     const newStatus = mistake.reviewStatus === 'REVIEWED' ? 'NOT_REVIEWED' : 'REVIEWED';
     try {
       await MistakeService.updateReview(mistake.id, {
@@ -155,6 +157,29 @@ const MistakeHistoryPage = () => {
     } catch (err) {
       showToast({ message: err.message, type: 'error' });
     }
+  };
+
+  // Status icon component matching LeetCode problemset style
+  const renderStatusIcon = (status) => {
+    if (status === 'REVIEWED') {
+      return (
+        <span title="Reviewed" className="d-inline-flex align-items-center justify-content-center" style={{ color: 'var(--lc-success)', width: '22px' }}>
+          <CheckCircle2 size={17} />
+        </span>
+      );
+    }
+    if (status === 'NEEDS_ANOTHER_REVIEW') {
+      return (
+        <span title="Needs Another Review" className="d-inline-flex align-items-center justify-content-center" style={{ color: 'var(--lc-accent)', width: '22px' }}>
+          <AlertCircle size={17} />
+        </span>
+      );
+    }
+    return (
+      <span title="Not Reviewed" className="d-inline-flex align-items-center justify-content-center" style={{ color: 'var(--lc-text-muted)', width: '22px' }}>
+        <Minus size={15} />
+      </span>
+    );
   };
 
   return (
@@ -181,38 +206,49 @@ const MistakeHistoryPage = () => {
       />
 
       {/* Header Bar */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-        <div>
-          <h2 className="h4 fw-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-            Mistake History & Practice Log
-          </h2>
-          <p className="text-muted mb-0 small">
-            Browse, search, filter, and review all recorded algorithmic mistakes.
-          </p>
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+        <div className="d-flex align-items-center gap-3">
+          <h1 className="h4 fw-bold mb-0" style={{ color: 'var(--lc-text-primary)', letterSpacing: '-0.01em' }}>
+            My Mistakes
+          </h1>
+          <span 
+            className="badge rounded-pill fw-medium"
+            style={{ 
+              backgroundColor: 'var(--lc-bg-card-hover)', 
+              color: 'var(--lc-text-secondary)',
+              border: '1px solid var(--lc-border)',
+              fontSize: '0.75rem',
+              padding: '0.25rem 0.6rem'
+            }}
+          >
+            {totalElements} total
+          </span>
         </div>
 
         <button 
-          className="btn btn-save d-inline-flex align-items-center gap-2"
+          className="btn btn-lc-primary d-inline-flex align-items-center gap-1"
           onClick={() => navigate('/mistakes/new')}
         >
-          <Plus size={18} />
-          <span>Record Mistake</span>
+          <Plus size={15} />
+          <span>Add Mistake</span>
         </button>
       </div>
 
-      {/* Search & Filter Toolbar */}
-      <div className="custom-card p-3 mb-4">
+      {/* LeetCode-style Filter & Search Toolbar */}
+      <div className="lc-panel p-3 mb-3">
         <div className="row g-2 align-items-center">
           {/* Search Input */}
           <div className="col-12 col-md-5">
-            <div className="input-group">
-              <span className="input-group-text bg-transparent border-end-0 text-muted" style={{ borderColor: 'var(--border-color)' }}>
-                <Search size={18} />
-              </span>
+            <div className="position-relative">
+              <Search 
+                size={15} 
+                className="position-absolute text-muted" 
+                style={{ left: '10px', top: '50%', transform: 'translateY(-50%)' }} 
+              />
               <input
                 type="text"
-                className="form-control border-start-0 ps-0"
-                placeholder="Search by problem name or notes..."
+                className="form-control form-control-sm ps-4 pe-4"
+                placeholder="Search problem name or notes..."
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -221,19 +257,19 @@ const MistakeHistoryPage = () => {
               />
               {search && (
                 <button 
-                  className="btn btn-link text-reset border-0 p-2 position-absolute end-0 top-50 translate-middle-y z-3"
+                  className="btn btn-link text-muted border-0 p-0 position-absolute end-0 top-50 translate-middle-y me-2"
                   onClick={() => { setSearch(''); setPage(0); }}
                 >
-                  <X size={16} />
+                  <X size={14} />
                 </button>
               )}
             </div>
           </div>
 
           {/* Sort Selector */}
-          <div className="col-6 col-md-4">
+          <div className="col-6 col-md-3">
             <select
-              className="form-select"
+              className="form-select form-select-sm"
               value={sort}
               onChange={(e) => {
                 setSort(e.target.value);
@@ -247,28 +283,29 @@ const MistakeHistoryPage = () => {
             </select>
           </div>
 
-          {/* Filter Toggle Button */}
-          <div className="col-6 col-md-3 d-flex gap-2">
+          {/* Quick Status / Filter Toggle Buttons */}
+          <div className="col-6 col-md-4 d-flex justify-content-end gap-2">
             <button
               type="button"
-              className={`btn flex-grow-1 d-inline-flex align-items-center justify-content-center gap-2 ${showFilters ? 'btn-indigo' : 'btn-secondary-custom'}`}
+              className={`btn btn-sm ${showFilters ? 'btn-lc-primary' : 'btn-lc-secondary'} d-inline-flex align-items-center gap-1`}
               onClick={() => setShowFilters(prev => !prev)}
             >
-              <Filter size={17} />
+              <Filter size={14} />
               <span>Filters</span>
               {hasActiveFilters && (
-                <span className="badge rounded-pill bg-light text-dark ms-1">Active</span>
+                <span className="badge rounded-circle bg-warning text-dark p-1" style={{ fontSize: '0.65rem', lineHeight: 1 }}>•</span>
               )}
             </button>
 
             {hasActiveFilters && (
               <button
                 type="button"
-                className="btn btn-secondary-custom p-2"
+                className="btn btn-sm btn-lc-secondary d-inline-flex align-items-center gap-1"
                 onClick={handleResetFilters}
-                title="Reset all filters"
+                title="Clear all filters"
               >
-                <RotateCcw size={17} />
+                <RotateCcw size={13} />
+                <span className="d-none d-sm-inline">Clear</span>
               </button>
             )}
           </div>
@@ -276,10 +313,10 @@ const MistakeHistoryPage = () => {
 
         {/* Collapsible Extended Filters */}
         {showFilters && (
-          <div className="mt-3 pt-3 border-top" style={{ borderColor: 'var(--border-color)' }}>
-            <div className="row g-3">
+          <div className="mt-3 pt-3 border-top" style={{ borderColor: 'var(--lc-border)' }}>
+            <div className="row g-2">
               <div className="col-12 col-sm-6 col-md-3">
-                <label className="form-label small">Topic</label>
+                <label className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>Topic</label>
                 <select
                   className="form-select form-select-sm"
                   value={selectedTopic}
@@ -293,7 +330,7 @@ const MistakeHistoryPage = () => {
               </div>
 
               <div className="col-12 col-sm-6 col-md-3">
-                <label className="form-label small">Mistake Type</label>
+                <label className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>Mistake Type</label>
                 <select
                   className="form-select form-select-sm"
                   value={selectedMistakeType}
@@ -306,8 +343,8 @@ const MistakeHistoryPage = () => {
                 </select>
               </div>
 
-              <div className="col-12 col-sm-6 col-md-3">
-                <label className="form-label small">Platform</label>
+              <div className="col-12 col-sm-6 col-md-2">
+                <label className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>Platform</label>
                 <select
                   className="form-select form-select-sm"
                   value={selectedPlatform}
@@ -320,8 +357,8 @@ const MistakeHistoryPage = () => {
                 </select>
               </div>
 
-              <div className="col-12 col-sm-6 col-md-3">
-                <label className="form-label small">Review Status</label>
+              <div className="col-12 col-sm-6 col-md-2">
+                <label className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>Review Status</label>
                 <select
                   className="form-select form-select-sm"
                   value={selectedReviewStatus}
@@ -334,8 +371,8 @@ const MistakeHistoryPage = () => {
                 </select>
               </div>
 
-              <div className="col-12 col-sm-6 col-md-3">
-                <label className="form-label small">From Date</label>
+              <div className="col-12 col-sm-6 col-md-2">
+                <label className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>From Date</label>
                 <input
                   type="date"
                   className="form-control form-control-sm"
@@ -343,237 +380,254 @@ const MistakeHistoryPage = () => {
                   onChange={(e) => { setStartDate(e.target.value); setPage(0); }}
                 />
               </div>
-
-              <div className="col-12 col-sm-6 col-md-3">
-                <label className="form-label small">To Date</label>
-                <input
-                  type="date"
-                  className="form-control form-control-sm"
-                  value={endDate}
-                  onChange={(e) => { setEndDate(e.target.value); setPage(0); }}
-                />
-              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Main Content Area */}
-      {loading ? (
-        <LoadingSpinner text="Loading mistake records from MySQL..." />
-      ) : mistakes.length === 0 ? (
-        <div className="custom-card empty-state p-5">
-          <FileSpreadsheet size={48} className="text-muted mb-3" />
-          <h3 className="h5 fw-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-            No Mistakes Found
-          </h3>
-          <p className="text-muted mb-4 small" style={{ maxWidth: '420px', margin: '0 auto' }}>
-            {hasActiveFilters 
-              ? 'No records matched your search filters. Try clearing or relaxing some filters.'
-              : 'You have not recorded any DSA mistakes yet. Log your first mistake to start tracking your progress!'}
-          </p>
-          {hasActiveFilters ? (
-            <button className="btn btn-secondary-custom" onClick={handleResetFilters}>
-              Clear All Filters
-            </button>
-          ) : (
-            <button className="btn btn-save" onClick={() => navigate('/mistakes/new')}>
-              Add Your First Mistake
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="custom-card p-4">
-          {/* Desktop Table View */}
-          <div className="table-responsive d-none d-md-block">
-            <table className="table custom-table">
-              <thead>
-                <tr>
-                  <th>Problem Name</th>
-                  <th>Topic</th>
-                  <th>Mistake Type</th>
-                  <th>Date Recorded</th>
-                  <th>Review Status</th>
-                  <th className="text-end">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mistakes.map((mistake) => (
-                  <tr key={mistake.id}>
-                    <td>
-                      <div className="fw-semibold">
-                        <Link 
-                          to={`/mistakes/${mistake.id}`} 
-                          className="text-decoration-none text-reset hover-underline"
-                        >
-                          {mistake.problemName}
-                        </Link>
-                      </div>
-                      <div className="d-flex align-items-center gap-2 mt-1">
-                        <PlatformBadge platform={mistake.platform} />
-                        {mistake.problemUrl && (
-                          <a 
-                            href={mistake.problemUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="text-muted text-decoration-none"
-                            title="Open external problem link"
-                          >
-                            <ExternalLink size={13} />
-                          </a>
-                        )}
-                        {mistake.timeComplexity && (
-                          <span className="complexity-pill" style={{ fontSize: '0.72rem' }}>
-                            {mistake.timeComplexity}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <TopicBadge topic={mistake.topic} />
-                    </td>
-                    <td>
-                      <MistakeTypeBadge type={mistake.mistakeType} />
-                    </td>
-                    <td>
-                      <small className="text-muted">{formatDate(mistake.createdAt)}</small>
-                    </td>
-                    <td>
-                      <div className="d-flex align-items-center gap-2">
-                        <ReviewStatusBadge status={mistake.reviewStatus} />
-                        {mistake.reviewStatus === 'REVIEWED' ? (
-                          <button
-                            className="btn btn-sm btn-link text-warning p-0 text-decoration-none"
-                            title="Reopen review"
-                            onClick={() => handleQuickToggleReview(mistake)}
-                          >
-                            <small style={{ fontSize: '0.75rem' }}>(Reopen)</small>
-                          </button>
-                        ) : (
-                          <button
-                            className="btn btn-sm btn-link text-success p-0 text-decoration-none"
-                            title="Mark as reviewed"
-                            onClick={() => handleQuickToggleReview(mistake)}
-                          >
-                            <small style={{ fontSize: '0.75rem' }}>(Mark done)</small>
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="text-end">
-                      <div className="d-inline-flex align-items-center gap-1">
-                        <button
-                          className="btn btn-sm btn-secondary-custom p-1"
-                          onClick={() => setReviewTarget(mistake)}
-                          title="Full Review Workflow"
-                        >
-                          <CheckCircle2 size={16} className="text-success" />
-                        </button>
-                        <Link
-                          to={`/mistakes/${mistake.id}`}
-                          className="btn btn-sm btn-secondary-custom p-1 text-decoration-none"
-                          title="View Details"
-                        >
-                          <Eye size={16} />
-                        </Link>
-                        <Link
-                          to={`/mistakes/${mistake.id}/edit`}
-                          className="btn btn-sm btn-secondary-custom p-1 text-decoration-none"
-                          title="Edit Mistake"
-                        >
-                          <Edit size={16} />
-                        </Link>
-                        <button
-                          className="btn btn-sm btn-secondary-custom p-1 text-danger"
-                          onClick={() => setDeleteTarget(mistake)}
-                          title="Delete Mistake"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Card View */}
-          <div className="d-md-none">
-            {mistakes.map((mistake) => (
+      {/* Main Content: LeetCode-style Problemset Table */}
+      <div className="lc-panel overflow-hidden">
+        {loading ? (
+          /* Loading Skeletons */
+          <div className="p-3">
+            {[...Array(6)].map((_, i) => (
               <div 
-                key={mistake.id} 
-                className="p-3 mb-3 rounded-3" 
-                style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-color)' }}
+                key={i} 
+                className="d-flex align-items-center justify-content-between py-3 border-bottom"
+                style={{ borderColor: 'var(--lc-border)' }}
               >
-                <div className="d-flex align-items-start justify-content-between mb-2">
-                  <div>
-                    <h3 className="fs-6 fw-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-                      <Link to={`/mistakes/${mistake.id}`} className="text-decoration-none text-reset">
-                        {mistake.problemName}
-                      </Link>
-                    </h3>
-                    <div className="d-flex flex-wrap gap-1 mt-1">
-                      <PlatformBadge platform={mistake.platform} />
-                      <TopicBadge topic={mistake.topic} />
-                    </div>
-                  </div>
-                  <ReviewStatusBadge status={mistake.reviewStatus} />
+                <div className="d-flex align-items-center gap-3" style={{ flex: 1 }}>
+                  <div className="rounded-circle" style={{ width: 18, height: 18, backgroundColor: 'var(--lc-bg-card-hover)' }} />
+                  <div style={{ width: '35%', height: 16, backgroundColor: 'var(--lc-bg-card-hover)', borderRadius: 4 }} />
+                  <div style={{ width: '15%', height: 16, backgroundColor: 'var(--lc-bg-card-hover)', borderRadius: 4 }} />
                 </div>
-
-                <div className="my-2">
-                  <MistakeTypeBadge type={mistake.mistakeType} />
-                </div>
-
-                <div className="d-flex align-items-center justify-content-between pt-2 border-top mt-2" style={{ borderColor: 'var(--border-color)' }}>
-                  <small className="text-muted">{formatDate(mistake.createdAt)}</small>
-                  
-                  <div className="d-flex align-items-center gap-2">
-                    <button
-                      className="btn btn-sm btn-secondary-custom p-1"
-                      onClick={() => setReviewTarget(mistake)}
-                      title="Review"
-                    >
-                      <CheckCircle2 size={16} className="text-success" />
-                    </button>
-                    <Link
-                      to={`/mistakes/${mistake.id}`}
-                      className="btn btn-sm btn-secondary-custom p-1 text-decoration-none"
-                    >
-                      <Eye size={16} />
-                    </Link>
-                    <Link
-                      to={`/mistakes/${mistake.id}/edit`}
-                      className="btn btn-sm btn-secondary-custom p-1 text-decoration-none"
-                    >
-                      <Edit size={16} />
-                    </Link>
-                    <button
-                      className="btn btn-sm btn-secondary-custom p-1 text-danger"
-                      onClick={() => setDeleteTarget(mistake)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
+                <div style={{ width: '20%', height: 16, backgroundColor: 'var(--lc-bg-card-hover)', borderRadius: 4 }} />
+                <div style={{ width: '10%', height: 16, backgroundColor: 'var(--lc-bg-card-hover)', borderRadius: 4 }} />
               </div>
             ))}
           </div>
+        ) : mistakes.length === 0 ? (
+          /* Empty / No Results State */
+          <div className="text-center py-5 px-3">
+            <FileSpreadsheet size={40} className="mb-2" style={{ color: 'var(--lc-text-muted)', strokeWidth: 1.5 }} />
+            <h3 className="h6 fw-semibold mb-1" style={{ color: 'var(--lc-text-primary)' }}>
+              {hasActiveFilters ? 'No Matching Mistakes Found' : 'No Mistakes Logged Yet'}
+            </h3>
+            <p className="small mb-3" style={{ color: 'var(--lc-text-secondary)', maxWidth: 400, margin: '0 auto' }}>
+              {hasActiveFilters 
+                ? 'No records match your selected filter criteria. Try clearing some filters or searching for a different keyword.'
+                : 'Every bug is a lesson. Log your first mistake to start analyzing your algorithmic blind spots!'}
+            </p>
+            {hasActiveFilters ? (
+              <button className="btn btn-sm btn-lc-secondary" onClick={handleResetFilters}>
+                Clear All Filters
+              </button>
+            ) : (
+              <button className="btn btn-sm btn-lc-primary" onClick={() => navigate('/mistakes/new')}>
+                Add Your First Mistake
+              </button>
+            )}
+          </div>
+        ) : (
+          <div>
+            {/* Desktop Table View */}
+            <div className="table-responsive d-none d-md-block">
+              <table className="lc-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '42px', textAlign: 'center' }}>Status</th>
+                    <th>Problem Name</th>
+                    <th style={{ width: '160px' }}>Topic</th>
+                    <th style={{ width: '180px' }}>Mistake Type</th>
+                    <th style={{ width: '130px' }}>Recorded</th>
+                    <th style={{ width: '120px', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mistakes.map((mistake) => (
+                    <tr 
+                      key={mistake.id}
+                      onClick={() => navigate(`/mistakes/${mistake.id}`)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      {/* 1. Review Status Icon */}
+                      <td 
+                        style={{ textAlign: 'center' }}
+                        onClick={(e) => handleQuickToggleReview(e, mistake)}
+                        title="Click to toggle reviewed status"
+                      >
+                        {renderStatusIcon(mistake.reviewStatus)}
+                      </td>
 
-          {/* Pagination Controls */}
-          <Pagination
-            pageNumber={page}
-            totalPages={totalPages}
-            totalElements={totalElements}
-            pageSize={size}
-            onPageChange={(newPage) => setPage(newPage)}
-            onPageSizeChange={(newSize) => {
-              setSize(newSize);
-              setPage(0);
-            }}
-          />
-        </div>
-      )}
+                      {/* 2. Problem Name */}
+                      <td>
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="fw-medium" style={{ color: 'var(--lc-text-primary)' }}>
+                            {mistake.problemName}
+                          </span>
+                          <PlatformBadge platform={mistake.platform} />
+                          {mistake.problemUrl && (
+                            <a 
+                              href={mistake.problemUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="text-muted d-inline-flex align-items-center"
+                              title="External problem link"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink size={12} />
+                            </a>
+                          )}
+                          {mistake.timeComplexity && (
+                            <span 
+                              className="font-mono"
+                              style={{ 
+                                fontSize: '0.72rem', 
+                                color: 'var(--lc-text-secondary)',
+                                backgroundColor: 'var(--lc-bg-card-hover)',
+                                padding: '1px 5px',
+                                borderRadius: '3px'
+                              }}
+                            >
+                              {mistake.timeComplexity}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* 3. Topic */}
+                      <td>
+                        <TopicBadge topic={mistake.topic} />
+                      </td>
+
+                      {/* 4. Mistake Type */}
+                      <td>
+                        <MistakeTypeBadge type={mistake.mistakeType} />
+                      </td>
+
+                      {/* 5. Date Recorded */}
+                      <td>
+                        <span className="small text-muted font-mono" style={{ fontSize: '0.78rem' }}>
+                          {formatDate(mistake.createdAt)}
+                        </span>
+                      </td>
+
+                      {/* 6. Actions */}
+                      <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                        <div className="d-inline-flex align-items-center gap-1">
+                          <button
+                            className="btn btn-sm btn-lc-secondary p-1"
+                            onClick={() => setReviewTarget(mistake)}
+                            title="Review Note / Status"
+                          >
+                            <Check size={14} style={{ color: mistake.reviewStatus === 'REVIEWED' ? 'var(--lc-success)' : 'var(--lc-accent)' }} />
+                          </button>
+                          <Link
+                            to={`/mistakes/${mistake.id}/edit`}
+                            className="btn btn-sm btn-lc-secondary p-1 text-decoration-none"
+                            title="Edit Mistake"
+                          >
+                            <Edit size={14} />
+                          </Link>
+                          <button
+                            className="btn btn-sm btn-lc-secondary p-1 text-danger"
+                            onClick={() => setDeleteTarget(mistake)}
+                            title="Delete Mistake"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Responsive List Layout */}
+            <div className="d-md-none p-2">
+              {mistakes.map((mistake) => (
+                <div 
+                  key={mistake.id} 
+                  className="p-3 mb-2 rounded" 
+                  style={{ 
+                    backgroundColor: 'var(--lc-bg-card)', 
+                    border: '1px solid var(--lc-border)' 
+                  }}
+                  onClick={() => navigate(`/mistakes/${mistake.id}`)}
+                >
+                  <div className="d-flex align-items-start justify-content-between gap-2 mb-2">
+                    <div className="d-flex align-items-center gap-2">
+                      <div onClick={(e) => handleQuickToggleReview(e, mistake)}>
+                        {renderStatusIcon(mistake.reviewStatus)}
+                      </div>
+                      <span className="fw-semibold small" style={{ color: 'var(--lc-text-primary)' }}>
+                        {mistake.problemName}
+                      </span>
+                    </div>
+                    <ReviewStatusBadge status={mistake.reviewStatus} />
+                  </div>
+
+                  <div className="d-flex flex-wrap align-items-center gap-1 mb-2">
+                    <PlatformBadge platform={mistake.platform} />
+                    <TopicBadge topic={mistake.topic} />
+                    <MistakeTypeBadge type={mistake.mistakeType} />
+                  </div>
+
+                  <div 
+                    className="d-flex align-items-center justify-content-between pt-2 border-top mt-2" 
+                    style={{ borderColor: 'var(--lc-border)' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="small text-muted font-mono" style={{ fontSize: '0.75rem' }}>
+                      {formatDate(mistake.createdAt)}
+                    </span>
+                    
+                    <div className="d-flex align-items-center gap-1">
+                      <button
+                        className="btn btn-sm btn-lc-secondary p-1"
+                        onClick={() => setReviewTarget(mistake)}
+                        title="Review"
+                      >
+                        <Check size={14} style={{ color: 'var(--lc-success)' }} />
+                      </button>
+                      <Link
+                        to={`/mistakes/${mistake.id}/edit`}
+                        className="btn btn-sm btn-lc-secondary p-1 text-decoration-none"
+                        title="Edit"
+                      >
+                        <Edit size={14} />
+                      </Link>
+                      <button
+                        className="btn btn-sm btn-lc-secondary p-1 text-danger"
+                        onClick={() => setDeleteTarget(mistake)}
+                        title="Delete"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="p-3 border-top" style={{ borderColor: 'var(--lc-border)' }}>
+              <Pagination
+                pageNumber={page}
+                totalPages={totalPages}
+                totalElements={totalElements}
+                pageSize={size}
+                onPageChange={(newPage) => setPage(newPage)}
+                onPageSizeChange={(newSize) => {
+                  setSize(newSize);
+                  setPage(0);
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

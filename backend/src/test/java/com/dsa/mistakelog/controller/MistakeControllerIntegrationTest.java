@@ -1,12 +1,16 @@
 package com.dsa.mistakelog.controller;
 
+import com.dsa.mistakelog.config.JwtTokenService;
 import com.dsa.mistakelog.dto.CreateMistakeRequest;
 import com.dsa.mistakelog.dto.ReviewUpdateRequest;
 import com.dsa.mistakelog.dto.UpdateMistakeRequest;
 import com.dsa.mistakelog.entity.Mistake;
 import com.dsa.mistakelog.entity.MistakeType;
 import com.dsa.mistakelog.entity.ReviewStatus;
+import com.dsa.mistakelog.entity.User;
+import com.dsa.mistakelog.entity.UserRole;
 import com.dsa.mistakelog.repository.MistakeRepository;
+import com.dsa.mistakelog.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,7 +18,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,13 +47,37 @@ class MistakeControllerIntegrationTest {
     @Autowired
     private MistakeRepository mistakeRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private JwtTokenService jwtTokenService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    private User testUser;
+    private String authToken;
     private Mistake savedMistake;
 
     @BeforeEach
     void setUp() {
         mistakeRepository.deleteAll();
+        userRepository.deleteAll();
+
+        testUser = userRepository.save(User.builder()
+                .name("Alice Test")
+                .email("alice@test.com")
+                .password(passwordEncoder.encode("Password@123"))
+                .role(UserRole.USER)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build());
+
+        authToken = "Bearer " + jwtTokenService.generateToken(testUser);
 
         Mistake mistake = Mistake.builder()
+                .user(testUser)
                 .problemName("Daily Temperatures")
                 .platform("LeetCode")
                 .problemUrl("https://leetcode.com/problems/daily-temperatures/")
@@ -69,6 +99,15 @@ class MistakeControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("Unauthenticated request to /api/mistakes should return 401 Unauthorized")
+    void testUnauthenticatedAccessRejected() throws Exception {
+        mockMvc.perform(get("/api/mistakes"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.error").value("Unauthorized"));
+    }
+
+    @Test
     @DisplayName("POST /api/mistakes should create mistake and return 201")
     void testCreateMistake() throws Exception {
         CreateMistakeRequest request = CreateMistakeRequest.builder()
@@ -87,6 +126,7 @@ class MistakeControllerIntegrationTest {
                 .build();
 
         mockMvc.perform(post("/api/mistakes")
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -107,6 +147,7 @@ class MistakeControllerIntegrationTest {
                 .build();
 
         mockMvc.perform(post("/api/mistakes")
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest())
@@ -120,6 +161,7 @@ class MistakeControllerIntegrationTest {
     @DisplayName("GET /api/mistakes should return paginated list")
     void testGetMistakesPaginated() throws Exception {
         mockMvc.perform(get("/api/mistakes")
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
                         .param("page", "0")
                         .param("size", "10")
                         .param("sort", "createdAt,desc"))
@@ -133,6 +175,7 @@ class MistakeControllerIntegrationTest {
     @DisplayName("GET /api/mistakes with search and topic filters")
     void testGetMistakesWithFilters() throws Exception {
         mockMvc.perform(get("/api/mistakes")
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
                         .param("search", "Temperatures")
                         .param("topic", "Stack")
                         .param("mistakeType", "WRONG_ALGORITHM"))
@@ -144,7 +187,8 @@ class MistakeControllerIntegrationTest {
     @Test
     @DisplayName("GET /api/mistakes/{id} should return mistake by ID")
     void testGetMistakeById() throws Exception {
-        mockMvc.perform(get("/api/mistakes/{id}", savedMistake.getId()))
+        mockMvc.perform(get("/api/mistakes/{id}", savedMistake.getId())
+                        .header(HttpHeaders.AUTHORIZATION, authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(savedMistake.getId()))
                 .andExpect(jsonPath("$.problemName").value("Daily Temperatures"));
@@ -153,7 +197,8 @@ class MistakeControllerIntegrationTest {
     @Test
     @DisplayName("GET /api/mistakes/{id} with nonexistent ID should return 404")
     void testGetMistakeNotFound() throws Exception {
-        mockMvc.perform(get("/api/mistakes/{id}", 999999L))
+        mockMvc.perform(get("/api/mistakes/{id}", 999999L)
+                        .header(HttpHeaders.AUTHORIZATION, authToken))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value(containsString("not found")));
     }
@@ -180,6 +225,7 @@ class MistakeControllerIntegrationTest {
                 .build();
 
         mockMvc.perform(put("/api/mistakes/{id}", savedMistake.getId())
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateRequest)))
                 .andExpect(status().isOk())
@@ -199,6 +245,7 @@ class MistakeControllerIntegrationTest {
                 .build();
 
         mockMvc.perform(patch("/api/mistakes/{id}/review", savedMistake.getId())
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reviewRequest)))
                 .andExpect(status().isOk())
@@ -210,17 +257,20 @@ class MistakeControllerIntegrationTest {
     @Test
     @DisplayName("DELETE /api/mistakes/{id} should delete mistake and return 204")
     void testDeleteMistake() throws Exception {
-        mockMvc.perform(delete("/api/mistakes/{id}", savedMistake.getId()))
+        mockMvc.perform(delete("/api/mistakes/{id}", savedMistake.getId())
+                        .header(HttpHeaders.AUTHORIZATION, authToken))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/mistakes/{id}", savedMistake.getId()))
+        mockMvc.perform(get("/api/mistakes/{id}", savedMistake.getId())
+                        .header(HttpHeaders.AUTHORIZATION, authToken))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     @DisplayName("GET /api/dashboard/stats should return dashboard summary")
     void testGetDashboardStats() throws Exception {
-        mockMvc.perform(get("/api/dashboard/stats"))
+        mockMvc.perform(get("/api/dashboard/stats")
+                        .header(HttpHeaders.AUTHORIZATION, authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalMistakes").value(greaterThanOrEqualTo(1)))
                 .andExpect(jsonPath("$.recentlyAddedMistakes").isArray());
@@ -229,7 +279,8 @@ class MistakeControllerIntegrationTest {
     @Test
     @DisplayName("GET /api/dashboard/mistakes-by-type should return breakdown")
     void testGetMistakesByType() throws Exception {
-        mockMvc.perform(get("/api/dashboard/mistakes-by-type"))
+        mockMvc.perform(get("/api/dashboard/mistakes-by-type")
+                        .header(HttpHeaders.AUTHORIZATION, authToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))));
     }
@@ -238,6 +289,7 @@ class MistakeControllerIntegrationTest {
     @DisplayName("GET /api/dashboard/mistakes-over-time should return timeline")
     void testGetMistakesOverTime() throws Exception {
         mockMvc.perform(get("/api/dashboard/mistakes-over-time")
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
                         .param("days", "14"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(14)));

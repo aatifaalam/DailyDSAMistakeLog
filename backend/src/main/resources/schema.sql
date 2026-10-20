@@ -4,8 +4,22 @@
 CREATE DATABASE IF NOT EXISTS dsa_mistake_log CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE dsa_mistake_log;
 
+-- Users table
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'USER',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_user_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Mistakes table
 CREATE TABLE IF NOT EXISTS mistakes (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
     problem_name VARCHAR(255) NOT NULL,
     platform VARCHAR(50),
     problem_url VARCHAR(1000),
@@ -23,9 +37,28 @@ CREATE TABLE IF NOT EXISTS mistakes (
     notes TEXT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_mistakes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_mistake_user_id (user_id),
     INDEX idx_mistake_topic (topic),
     INDEX idx_mistake_type (mistake_type),
     INDEX idx_mistake_platform (platform),
     INDEX idx_mistake_review_status (review_status),
     INDEX idx_mistake_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Learning Progress table (Learn DSA Course)
+CREATE TABLE IF NOT EXISTS learning_progress (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    learning_point_id VARCHAR(100) NOT NULL,
+    topic_slug VARCHAR(100) NOT NULL,
+    lesson_slug VARCHAR(100) NOT NULL,
+    completed BOOLEAN NOT NULL DEFAULT FALSE,
+    completed_at DATETIME,
+    last_viewed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_learning_progress_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT uk_user_learning_point UNIQUE (user_id, learning_point_id),
+    INDEX idx_learning_progress_user (user_id),
+    INDEX idx_learning_progress_topic (user_id, topic_slug)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

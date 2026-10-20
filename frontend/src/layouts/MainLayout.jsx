@@ -8,9 +8,10 @@ const getPageTitle = (pathname) => {
   if (pathname === '/mistakes/new') return 'Record New DSA Mistake';
   if (pathname === '/mistakes') return 'Mistake History';
   if (pathname.includes('/edit')) return 'Edit Mistake';
-  if (pathname.startsWith('/mistakes/')) return 'Mistake Details & Review';
+  if (pathname === '/reviews') return 'Review Queue';
   if (pathname === '/analytics') return 'Analytics & Insights';
-  return 'DSA Mistake Log';
+  if (pathname === '/profile') return 'Account & Security';
+  return 'Daily DSA Mistake Log';
 };
 
 const MainLayout = () => {

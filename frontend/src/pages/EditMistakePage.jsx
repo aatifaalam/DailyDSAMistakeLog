@@ -56,16 +56,21 @@ const EditMistakePage = () => {
   };
 
   if (fetching) {
-    return <LoadingSpinner text="Fetching mistake record for editing..." />;
+    return (
+      <div className="lc-panel p-5 text-center">
+        <div className="spinner-border spinner-border-sm text-warning mb-2" role="status" />
+        <p className="small text-muted mb-0">Loading mistake record for editing...</p>
+      </div>
+    );
   }
 
   return (
     <div>
-      <div className="mb-4">
-        <h2 className="h4 fw-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+      <div className="mb-3">
+        <h1 className="h4 fw-bold mb-1" style={{ color: 'var(--lc-text-primary)', letterSpacing: '-0.01em' }}>
           Edit Mistake Record
-        </h2>
-        <p className="text-muted mb-0 small">
+        </h1>
+        <p className="small mb-0" style={{ color: 'var(--lc-text-secondary)' }}>
           Update problem retrospective details, correct approach, or review status.
         </p>
       </div>

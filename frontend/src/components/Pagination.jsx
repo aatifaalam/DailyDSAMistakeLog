@@ -32,57 +32,61 @@ const Pagination = ({
   };
 
   return (
-    <div className="d-flex flex-column flex-md-row align-items-center justify-content-between gap-3 pt-3 mt-3 border-top" style={{ borderColor: 'var(--border-color)' }}>
+    <div className="d-flex flex-column flex-sm-row align-items-center justify-content-between gap-3 pt-3 mt-3 border-top" style={{ borderColor: 'var(--lc-border)' }}>
       <div className="d-flex align-items-center gap-3">
-        <small className="text-muted">
-          Showing <strong style={{ color: 'var(--text-primary)' }}>{startIdx}</strong> to <strong style={{ color: 'var(--text-primary)' }}>{endIdx}</strong> of <strong style={{ color: 'var(--text-primary)' }}>{totalElements}</strong> mistakes
+        <small className="text-muted" style={{ fontSize: '12px' }}>
+          Showing <span style={{ color: 'var(--lc-text-primary)', fontWeight: 600 }}>{startIdx}–{endIdx}</span> of <span style={{ color: 'var(--lc-text-primary)', fontWeight: 600 }}>{totalElements}</span>
         </small>
         
         {onPageSizeChange && (
           <div className="d-flex align-items-center gap-2">
-            <small className="text-muted">Rows:</small>
+            <small className="text-muted" style={{ fontSize: '12px' }}>Rows:</small>
             <select
-              className="form-select form-select-sm py-1 px-2"
-              style={{ width: 'auto' }}
+              className="form-select form-select-sm py-0 px-2"
+              style={{ width: 'auto', height: '26px', fontSize: '12px' }}
               value={pageSize}
-              onChange={(e) => onPageSizeChange(Number(e.target.value))}
+              onChange={(e) => onPageChange && onPageSizeChange(Number(e.target.value))}
             >
-              <option value="5">5</option>
-              <option value="10">10</option>
-              <option value="20">20</option>
-              <option value="50">50</option>
+              <option value="10">10 / page</option>
+              <option value="20">20 / page</option>
+              <option value="50">50 / page</option>
             </select>
           </div>
         )}
       </div>
 
-      <nav aria-label="Pagination Navigation">
+      <nav aria-label="LeetCode Pagination">
         <ul className="pagination pagination-sm mb-0 gap-1">
           <li className={`page-item ${pageNumber === 0 ? 'disabled' : ''}`}>
             <button 
-              className="page-link rounded-2"
+              className="page-link rounded-1 p-1 d-flex align-items-center justify-content-center"
               onClick={() => onPageChange(pageNumber - 1)}
               disabled={pageNumber === 0}
-              aria-label="Previous"
+              aria-label="Previous Page"
               style={{
-                backgroundColor: 'var(--bg-card)',
-                borderColor: 'var(--border-color)',
-                color: pageNumber === 0 ? 'var(--text-muted)' : 'var(--text-primary)'
+                width: '28px',
+                height: '28px',
+                backgroundColor: 'var(--lc-bg-secondary)',
+                borderColor: 'var(--lc-border)',
+                color: pageNumber === 0 ? 'var(--lc-text-muted)' : 'var(--lc-text-primary)'
               }}
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={14} />
             </button>
           </li>
 
           {getPageNumbers().map((num) => (
             <li key={num} className="page-item">
               <button 
-                className="page-link rounded-2 fw-medium"
+                className="page-link rounded-1 fw-semibold d-flex align-items-center justify-content-center p-0"
                 onClick={() => onPageChange(num)}
                 style={{
-                  backgroundColor: pageNumber === num ? '#6366f1' : 'var(--bg-card)',
-                  borderColor: pageNumber === num ? '#6366f1' : 'var(--border-color)',
-                  color: pageNumber === num ? '#ffffff' : 'var(--text-primary)'
+                  width: '28px',
+                  height: '28px',
+                  fontSize: '12px',
+                  backgroundColor: pageNumber === num ? 'var(--lc-accent)' : 'var(--lc-bg-secondary)',
+                  borderColor: pageNumber === num ? 'var(--lc-accent)' : 'var(--lc-border)',
+                  color: pageNumber === num ? '#1A1A1A' : 'var(--lc-text-primary)'
                 }}
               >
                 {num + 1}
@@ -92,17 +96,19 @@ const Pagination = ({
 
           <li className={`page-item ${pageNumber >= totalPages - 1 ? 'disabled' : ''}`}>
             <button 
-              className="page-link rounded-2"
+              className="page-link rounded-1 p-1 d-flex align-items-center justify-content-center"
               onClick={() => onPageChange(pageNumber + 1)}
               disabled={pageNumber >= totalPages - 1}
-              aria-label="Next"
+              aria-label="Next Page"
               style={{
-                backgroundColor: 'var(--bg-card)',
-                borderColor: 'var(--border-color)',
-                color: pageNumber >= totalPages - 1 ? 'var(--text-muted)' : 'var(--text-primary)'
+                width: '28px',
+                height: '28px',
+                backgroundColor: 'var(--lc-bg-secondary)',
+                borderColor: 'var(--lc-border)',
+                color: pageNumber >= totalPages - 1 ? 'var(--lc-text-muted)' : 'var(--lc-text-primary)'
               }}
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={14} />
             </button>
           </li>
         </ul>

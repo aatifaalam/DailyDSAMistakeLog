@@ -35,11 +35,11 @@ const AddMistakePage = () => {
 
   return (
     <div>
-      <div className="mb-4">
-        <h2 className="h4 fw-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+      <div className="mb-3">
+        <h1 className="h4 fw-bold mb-1" style={{ color: 'var(--lc-text-primary)', letterSpacing: '-0.01em' }}>
           Record a DSA Mistake
-        </h2>
-        <p className="text-muted mb-0 small">
+        </h1>
+        <p className="small mb-0" style={{ color: 'var(--lc-text-secondary)' }}>
           Document your initial intuition, analyze why it failed, and define what you will do differently next time.
         </p>
       </div>

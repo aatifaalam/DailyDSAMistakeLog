@@ -23,19 +23,23 @@ export const ToastProvider = ({ children }) => {
     }
   }, [removeToast]);
 
+  const addToast = useCallback((message, type = 'success', duration = 4000) => {
+    showToast({ message, type, duration });
+  }, [showToast]);
+
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={{ showToast, addToast }}>
       {children}
       <div className="toast-container position-fixed bottom-0 end-0 p-3" style={{ zIndex: 9999 }}>
         {toasts.map((toast) => {
-          const bgClass =
+          const accentColor =
             toast.type === 'error'
-              ? 'bg-danger text-white'
+              ? 'var(--lc-error)'
               : toast.type === 'warning'
-              ? 'bg-warning text-dark'
+              ? 'var(--lc-accent)'
               : toast.type === 'info'
-              ? 'bg-info text-dark'
-              : 'bg-success text-white';
+              ? 'var(--lc-info)'
+              : 'var(--lc-success)';
 
           const IconComponent =
             toast.type === 'error'
@@ -49,26 +53,33 @@ export const ToastProvider = ({ children }) => {
           return (
             <div
               key={toast.id}
-              className={`toast show align-items-center border-0 shadow-lg mb-2 ${bgClass}`}
+              className="toast show align-items-center mb-2 shadow-lg"
               role="alert"
               aria-live="assertive"
               aria-atomic="true"
-              style={{ minWidth: '300px', borderRadius: '10px' }}
+              style={{ 
+                minWidth: '300px', 
+                backgroundColor: 'var(--lc-bg-card)', 
+                border: '1px solid var(--lc-border)',
+                borderLeft: `4px solid ${accentColor}`,
+                color: 'var(--lc-text-primary)',
+                borderRadius: '6px'
+              }}
             >
               <div className="d-flex p-2 align-items-center">
-                <div className="me-2 d-flex align-items-center">
-                  <IconComponent size={20} />
+                <div className="me-2 d-flex align-items-center" style={{ color: accentColor }}>
+                  <IconComponent size={18} />
                 </div>
-                <div className="toast-body flex-grow-1 py-1 px-2 fw-medium">
+                <div className="toast-body flex-grow-1 py-1 px-1 small fw-medium" style={{ color: 'var(--lc-text-primary)' }}>
                   {toast.message}
                 </div>
                 <button
                   type="button"
-                  className="btn btn-sm btn-link text-reset p-1 text-decoration-none"
+                  className="btn btn-sm btn-link text-muted p-1 text-decoration-none"
                   onClick={() => removeToast(toast.id)}
                   aria-label="Close"
                 >
-                  <X size={18} />
+                  <X size={15} />
                 </button>
               </div>
             </div>

@@ -8,11 +8,16 @@ public class SpaWebController {
 
     @GetMapping(value = {
         "/",
+        "/login",
+        "/register",
+        "/profile",
         "/mistakes",
-        "/mistakes/{id:[0-9]+}",
-        "/mistakes/{id:[0-9]+}/edit",
-        "/mistakes/new",
-        "/analytics"
+        "/mistakes/**",
+        "/reviews",
+        "/review-queue",
+        "/analytics",
+        "/learn",
+        "/learn/**"
     })
     public String forwardSpaRoutes() {
         return "forward:/index.html";

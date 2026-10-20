@@ -4,6 +4,7 @@ import com.dsa.mistakelog.dto.*;
 import com.dsa.mistakelog.entity.Mistake;
 import com.dsa.mistakelog.entity.MistakeType;
 import com.dsa.mistakelog.entity.ReviewStatus;
+import com.dsa.mistakelog.entity.User;
 import com.dsa.mistakelog.exception.ResourceNotFoundException;
 import com.dsa.mistakelog.repository.MistakeRepository;
 import com.dsa.mistakelog.repository.MistakeSpecification;
@@ -38,24 +39,25 @@ public class MistakeServiceImpl implements MistakeService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<MistakeResponse> getMistakes(MistakeFilterCriteria criteria, Pageable pageable) {
+    public PageResponse<MistakeResponse> getMistakes(User user, MistakeFilterCriteria criteria, Pageable pageable) {
         Pageable validatedPageable = validateAndSanitizePageable(pageable);
-        Specification<Mistake> spec = MistakeSpecification.withCriteria(criteria);
+        Specification<Mistake> spec = MistakeSpecification.withCriteriaAndUser(criteria, user);
         Page<Mistake> page = mistakeRepository.findAll(spec, validatedPageable);
         return PageResponse.fromPage(page.map(MistakeResponse::fromEntity));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public MistakeResponse getMistakeById(Long id) {
-        Mistake mistake = mistakeRepository.findById(id)
+    public MistakeResponse getMistakeById(Long id, User user) {
+        Mistake mistake = mistakeRepository.findByIdAndUser(id, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Mistake", "id", id));
         return MistakeResponse.fromEntity(mistake);
     }
 
     @Override
-    public MistakeResponse createMistake(CreateMistakeRequest request) {
+    public MistakeResponse createMistake(CreateMistakeRequest request, User user) {
         Mistake mistake = Mistake.builder()
+                .user(user)
                 .problemName(request.getProblemName().trim())
                 .platform(request.getPlatform() != null ? request.getPlatform().trim() : null)
                 .problemUrl(request.getProblemUrl() != null && !request.getProblemUrl().isBlank() ? request.getProblemUrl().trim() : null)
@@ -74,13 +76,13 @@ public class MistakeServiceImpl implements MistakeService {
                 .build();
 
         Mistake saved = mistakeRepository.save(mistake);
-        log.info("Created new mistake log with id: {}", saved.getId());
+        log.info("User {} created new mistake log with id: {}", user.getEmail(), saved.getId());
         return MistakeResponse.fromEntity(saved);
     }
 
     @Override
-    public MistakeResponse updateMistake(Long id, UpdateMistakeRequest request) {
-        Mistake existing = mistakeRepository.findById(id)
+    public MistakeResponse updateMistake(Long id, UpdateMistakeRequest request, User user) {
+        Mistake existing = mistakeRepository.findByIdAndUser(id, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Mistake", "id", id));
 
         existing.setProblemName(request.getProblemName().trim());
@@ -112,21 +114,21 @@ public class MistakeServiceImpl implements MistakeService {
         }
 
         Mistake updated = mistakeRepository.save(existing);
-        log.info("Updated mistake log with id: {}", updated.getId());
+        log.info("User {} updated mistake log with id: {}", user.getEmail(), updated.getId());
         return MistakeResponse.fromEntity(updated);
     }
 
     @Override
-    public void deleteMistake(Long id) {
-        Mistake existing = mistakeRepository.findById(id)
+    public void deleteMistake(Long id, User user) {
+        Mistake existing = mistakeRepository.findByIdAndUser(id, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Mistake", "id", id));
         mistakeRepository.delete(existing);
-        log.info("Deleted mistake log with id: {}", id);
+        log.info("User {} deleted mistake log with id: {}", user.getEmail(), id);
     }
 
     @Override
-    public MistakeResponse updateReview(Long id, ReviewUpdateRequest request) {
-        Mistake existing = mistakeRepository.findById(id)
+    public MistakeResponse updateReview(Long id, ReviewUpdateRequest request, User user) {
+        Mistake existing = mistakeRepository.findByIdAndUser(id, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Mistake", "id", id));
 
         existing.setReviewStatus(request.getReviewStatus());
@@ -146,27 +148,27 @@ public class MistakeServiceImpl implements MistakeService {
         }
 
         Mistake updated = mistakeRepository.save(existing);
-        log.info("Updated review status for mistake id: {} to {}", id, request.getReviewStatus());
+        log.info("User {} updated review for mistake id: {} to {}", user.getEmail(), id, request.getReviewStatus());
         return MistakeResponse.fromEntity(updated);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public DashboardStatsResponse getDashboardStats() {
-        long totalMistakes = mistakeRepository.count();
+    public DashboardStatsResponse getDashboardStats(User user) {
+        long totalMistakes = mistakeRepository.countByUser(user);
 
-        // Calculate beginning of current week (Monday 00:00:00)
         LocalDateTime startOfWeek = LocalDate.now()
                 .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
                 .atStartOfDay();
-        long mistakesThisWeek = mistakeRepository.countByCreatedAtGreaterThanEqual(startOfWeek);
+        long mistakesThisWeek = mistakeRepository.countByUserAndCreatedAtGreaterThanEqual(user, startOfWeek);
 
-        long reviewedCount = mistakeRepository.countByReviewStatus(ReviewStatus.REVIEWED);
-        long needsReviewCount = mistakeRepository.countByReviewStatusIn(
+        long reviewedCount = mistakeRepository.countByUserAndReviewStatus(user, ReviewStatus.REVIEWED);
+        long needsReviewCount = mistakeRepository.countByUserAndReviewStatusIn(
+                user,
                 List.of(ReviewStatus.NOT_REVIEWED, ReviewStatus.NEEDS_ANOTHER_REVIEW)
         );
 
-        List<Object[]> typeGroup = mistakeRepository.countGroupByMistakeType();
+        List<Object[]> typeGroup = mistakeRepository.countGroupByUserAndMistakeType(user);
         String mostFrequentType = null;
         String mostFrequentTypeLabel = null;
         if (!typeGroup.isEmpty()) {
@@ -184,7 +186,7 @@ public class MistakeServiceImpl implements MistakeService {
             }
         }
 
-        List<MistakeResponse> recentlyAdded = mistakeRepository.findTop5ByOrderByCreatedAtDesc()
+        List<MistakeResponse> recentlyAdded = mistakeRepository.findTop5ByUserOrderByCreatedAtDesc(user)
                 .stream()
                 .map(MistakeResponse::fromEntity)
                 .toList();
@@ -202,8 +204,8 @@ public class MistakeServiceImpl implements MistakeService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<MistakeTypeStat> getMistakesByType() {
-        List<Object[]> results = mistakeRepository.countGroupByMistakeType();
+    public List<MistakeTypeStat> getMistakesByType(User user) {
+        List<Object[]> results = mistakeRepository.countGroupByUserAndMistakeType(user);
         Map<MistakeType, Long> countsMap = new EnumMap<>(MistakeType.class);
 
         for (Object[] row : results) {
@@ -228,17 +230,16 @@ public class MistakeServiceImpl implements MistakeService {
                     .build());
         }
 
-        // Sort by count desc
         stats.sort((a, b) -> Long.compare(b.getCount(), a.getCount()));
         return stats;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<MistakesOverTimeStat> getMistakesOverTime(int days) {
+    public List<MistakesOverTimeStat> getMistakesOverTime(User user, int days) {
         int windowDays = (days > 0 && days <= 365) ? days : 14;
         LocalDateTime startDate = LocalDate.now().minusDays(windowDays - 1L).atStartOfDay();
-        List<Object[]> results = mistakeRepository.countGroupByDate(startDate);
+        List<Object[]> results = mistakeRepository.countGroupByUserAndDate(user, startDate);
 
         Map<LocalDate, Long> countsMap = new HashMap<>();
         for (Object[] row : results) {
@@ -272,8 +273,8 @@ public class MistakeServiceImpl implements MistakeService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<TopicStat> getMistakesByTopic() {
-        List<Object[]> results = mistakeRepository.countGroupByTopic();
+    public List<TopicStat> getMistakesByTopic(User user) {
+        List<Object[]> results = mistakeRepository.countGroupByUserAndTopic(user);
         List<TopicStat> stats = new ArrayList<>();
         for (Object[] row : results) {
             if (row[0] != null) {
@@ -295,7 +296,6 @@ public class MistakeServiceImpl implements MistakeService {
         for (Sort.Order order : pageable.getSort()) {
             String property = order.getProperty().replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
             if (ALLOWED_SORT_PROPERTIES.contains(property)) {
-                // map to exact entity field name
                 String entityProperty = switch (property) {
                     case "problemname" -> "problemName";
                     case "createdat" -> "createdAt";

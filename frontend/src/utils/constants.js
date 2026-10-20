@@ -1,11 +1,11 @@
 export const MISTAKE_TYPES = [
-  { value: 'WRONG_ALGORITHM', label: 'Wrong algorithm / assumption', color: '#ef4444' },
-  { value: 'IMPLEMENTATION_SYNTAX', label: 'Implementation / syntax', color: '#f97316' },
-  { value: 'EDGE_CASE', label: 'Edge case', color: '#eab308' },
-  { value: 'TIME_COMPLEXITY', label: 'Time complexity', color: '#8b5cf6' },
-  { value: 'SPACE_COMPLEXITY', label: 'Space complexity', color: '#ec4899' },
-  { value: 'MISUNDERSTOOD_PROBLEM', label: 'Misunderstood problem', color: '#06b6d4' },
-  { value: 'OTHER', label: 'Other', color: '#64748b' }
+  { value: 'WRONG_ALGORITHM', label: 'Wrong algorithm / assumption', color: '#EF4743', bg: 'rgba(239, 71, 67, 0.15)' },
+  { value: 'IMPLEMENTATION_SYNTAX', label: 'Implementation / syntax', color: '#FFA116', bg: 'rgba(255, 161, 22, 0.15)' },
+  { value: 'EDGE_CASE', label: 'Edge case', color: '#FFC01E', bg: 'rgba(255, 192, 30, 0.15)' },
+  { value: 'TIME_COMPLEXITY', label: 'Time complexity', color: '#58A6FF', bg: 'rgba(88, 166, 255, 0.15)' },
+  { value: 'SPACE_COMPLEXITY', label: 'Space complexity', color: '#A371F7', bg: 'rgba(163, 113, 247, 0.15)' },
+  { value: 'MISUNDERSTOOD_PROBLEM', label: 'Misunderstood problem', color: '#00B8A3', bg: 'rgba(0, 184, 163, 0.15)' },
+  { value: 'OTHER', label: 'Other', color: '#8A8A8A', bg: 'rgba(138, 138, 138, 0.15)' }
 ];
 
 export const PLATFORMS = [
@@ -40,9 +40,9 @@ export const TOPICS = [
 ];
 
 export const REVIEW_STATUSES = [
-  { value: 'NOT_REVIEWED', label: 'Not reviewed', badgeClass: 'bg-secondary' },
-  { value: 'NEEDS_ANOTHER_REVIEW', label: 'Needs another review', badgeClass: 'bg-warning text-dark' },
-  { value: 'REVIEWED', label: 'Reviewed', badgeClass: 'bg-success' }
+  { value: 'NOT_REVIEWED', label: 'Not reviewed', color: '#8A8A8A', bg: 'rgba(138, 138, 138, 0.15)', badgeClass: 'badge-status-neutral' },
+  { value: 'NEEDS_ANOTHER_REVIEW', label: 'Needs another review', color: '#FFA116', bg: 'rgba(255, 161, 22, 0.15)', badgeClass: 'badge-status-warning' },
+  { value: 'REVIEWED', label: 'Reviewed', color: '#2CBB5D', bg: 'rgba(44, 187, 93, 0.15)', badgeClass: 'badge-status-success' }
 ];
 
 export const getMistakeTypeBadge = (type) => {
@@ -52,12 +52,17 @@ export const getMistakeTypeBadge = (type) => {
 
 export const getMistakeTypeColor = (type) => {
   const found = MISTAKE_TYPES.find(t => t.value === type);
-  return found ? found.color : '#64748b';
+  return found ? found.color : '#8A8A8A';
+};
+
+export const getMistakeTypeBg = (type) => {
+  const found = MISTAKE_TYPES.find(t => t.value === type);
+  return found ? found.bg : 'rgba(138, 138, 138, 0.15)';
 };
 
 export const getReviewStatusBadge = (status) => {
   const found = REVIEW_STATUSES.find(s => s.value === status);
-  return found || { value: status, label: status, badgeClass: 'bg-secondary' };
+  return found || { value: status, label: status || 'Not reviewed', color: '#8A8A8A', bg: 'rgba(138, 138, 138, 0.15)', badgeClass: 'badge-status-neutral' };
 };
 
 export const formatDate = (dateString) => {

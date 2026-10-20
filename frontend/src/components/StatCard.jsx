@@ -1,27 +1,32 @@
 import React from 'react';
 
-const StatCard = ({ title, value, subtitle, icon: Icon, color = '#6366f1', bgColor = 'rgba(99, 102, 241, 0.12)' }) => {
+const StatCard = ({ title, value, subtitle, icon: Icon, color = 'var(--lc-accent)', bgColor = 'var(--lc-accent-subtle)' }) => {
   return (
-    <div className="custom-card stat-card h-100">
+    <div className="lc-stat-box h-100">
       <div>
-        <span className="text-muted fw-semibold small text-uppercase" style={{ letterSpacing: '0.04em' }}>
+        <span className="lc-stat-label">
           {title}
         </span>
-        <h2 className="fs-3 fw-bold my-1" style={{ color: 'var(--text-primary)' }}>
+        <div className="lc-stat-value my-1">
           {value !== undefined && value !== null ? value : '—'}
-        </h2>
+        </div>
         {subtitle && (
-          <small className="text-muted d-block">
+          <div className="text-muted" style={{ fontSize: '11px' }}>
             {subtitle}
-          </small>
+          </div>
         )}
       </div>
       {Icon && (
         <div 
-          className="stat-icon-wrapper flex-shrink-0 ms-3"
-          style={{ backgroundColor: bgColor, color: color }}
+          className="d-flex align-items-center justify-content-center rounded-2 flex-shrink-0 ms-2"
+          style={{ 
+            width: '36px', 
+            height: '36px', 
+            backgroundColor: bgColor, 
+            color: color 
+          }}
         >
-          <Icon size={24} />
+          <Icon size={18} />
         </div>
       )}
     </div>

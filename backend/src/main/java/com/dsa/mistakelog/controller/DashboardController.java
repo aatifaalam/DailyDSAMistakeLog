@@ -1,9 +1,11 @@
 package com.dsa.mistakelog.controller;
 
+import com.dsa.mistakelog.config.CurrentUserResolver;
 import com.dsa.mistakelog.dto.DashboardStatsResponse;
 import com.dsa.mistakelog.dto.MistakeTypeStat;
 import com.dsa.mistakelog.dto.MistakesOverTimeStat;
 import com.dsa.mistakelog.dto.TopicStat;
+import com.dsa.mistakelog.entity.User;
 import com.dsa.mistakelog.service.MistakeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,25 +22,30 @@ import java.util.List;
 public class DashboardController {
 
     private final MistakeService mistakeService;
+    private final CurrentUserResolver currentUserResolver;
 
     @GetMapping("/stats")
     public ResponseEntity<DashboardStatsResponse> getStats() {
-        return ResponseEntity.ok(mistakeService.getDashboardStats());
+        User currentUser = currentUserResolver.resolveCurrentUser();
+        return ResponseEntity.ok(mistakeService.getDashboardStats(currentUser));
     }
 
     @GetMapping("/mistakes-by-type")
     public ResponseEntity<List<MistakeTypeStat>> getMistakesByType() {
-        return ResponseEntity.ok(mistakeService.getMistakesByType());
+        User currentUser = currentUserResolver.resolveCurrentUser();
+        return ResponseEntity.ok(mistakeService.getMistakesByType(currentUser));
     }
 
     @GetMapping("/mistakes-over-time")
     public ResponseEntity<List<MistakesOverTimeStat>> getMistakesOverTime(
             @RequestParam(defaultValue = "14") int days) {
-        return ResponseEntity.ok(mistakeService.getMistakesOverTime(days));
+        User currentUser = currentUserResolver.resolveCurrentUser();
+        return ResponseEntity.ok(mistakeService.getMistakesOverTime(currentUser, days));
     }
 
     @GetMapping("/mistakes-by-topic")
     public ResponseEntity<List<TopicStat>> getMistakesByTopic() {
-        return ResponseEntity.ok(mistakeService.getMistakesByTopic());
+        User currentUser = currentUserResolver.resolveCurrentUser();
+        return ResponseEntity.ok(mistakeService.getMistakesByTopic(currentUser));
     }
 }

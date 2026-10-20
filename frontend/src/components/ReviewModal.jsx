@@ -40,6 +40,7 @@ const ReviewModal = ({
       <div 
         className="modal-backdrop fade show" 
         onClick={!isLoading ? onClose : undefined}
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
       />
       <div 
         className="modal fade show d-block" 
@@ -48,36 +49,49 @@ const ReviewModal = ({
         aria-modal="true"
       >
         <div className="modal-dialog modal-dialog-centered" role="document">
-          <div className="modal-content custom-modal-content p-2">
-            <div className="modal-header border-0 pb-0">
+          <div 
+            className="modal-content lc-panel p-3 shadow-lg"
+            style={{ 
+              backgroundColor: 'var(--lc-bg-card)', 
+              borderColor: 'var(--lc-border)' 
+            }}
+          >
+            <div className="modal-header border-0 pb-0 pt-1 px-1">
               <div className="d-flex align-items-center gap-2">
-                <div className="text-success p-2 rounded-circle" style={{ background: 'rgba(16, 185, 129, 0.15)' }}>
-                  <CheckCircle2 size={22} />
+                <div 
+                  className="p-1 rounded" 
+                  style={{ backgroundColor: 'rgba(44, 187, 93, 0.15)', color: 'var(--lc-success)' }}
+                >
+                  <CheckCircle2 size={18} />
                 </div>
                 <div>
-                  <h5 className="modal-title fw-bold mb-0" style={{ color: 'var(--text-primary)' }}>
+                  <h2 className="h6 fw-semibold mb-0" style={{ color: 'var(--lc-text-primary)' }}>
                     Review Mistake
-                  </h5>
-                  <small className="text-muted">{mistake.problemName}</small>
+                  </h2>
+                  <small className="text-muted font-mono" style={{ fontSize: '0.75rem' }}>
+                    {mistake.problemName}
+                  </small>
                 </div>
               </div>
               <button 
                 type="button" 
-                className="btn btn-sm btn-link text-reset p-1 text-decoration-none" 
+                className="btn btn-sm btn-link text-muted p-1 text-decoration-none" 
                 onClick={onClose}
                 disabled={isLoading}
                 aria-label="Close"
               >
-                <X size={20} />
+                <X size={16} />
               </button>
             </div>
             
             <form onSubmit={handleSubmit}>
-              <div className="modal-body py-3">
-                <div className="mb-3">
-                  <label className="form-label">Review Status</label>
+              <div className="modal-body py-3 px-1">
+                <div className="mb-2">
+                  <label className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
+                    Review Status
+                  </label>
                   <select 
-                    className="form-select"
+                    className="form-select form-select-sm"
                     value={reviewStatus}
                     onChange={(e) => setReviewStatus(e.target.value)}
                     required
@@ -90,39 +104,43 @@ const ReviewModal = ({
                   </select>
                 </div>
 
-                <div className="mb-3">
-                  <label className="form-label">Review Date</label>
+                <div className="mb-2">
+                  <label className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
+                    Review Date
+                  </label>
                   <input 
                     type="date" 
-                    className="form-control"
+                    className="form-control form-control-sm"
                     value={reviewDate}
                     onChange={(e) => setReviewDate(e.target.value)}
                   />
-                  <small className="text-muted" style={{ fontSize: '0.78rem' }}>
-                    Date when you practiced or re-solved this problem.
+                  <small className="text-muted" style={{ fontSize: '0.72rem' }}>
+                    Date when you practiced or resolved this problem.
                   </small>
                 </div>
 
                 <div className="mb-3">
-                  <div className="form-check form-switch">
+                  <div className="form-check form-switch p-1 rounded" style={{ backgroundColor: 'var(--lc-bg-main)' }}>
                     <input 
-                      className="form-check-input" 
+                      className="form-check-input ms-0 me-2" 
                       type="checkbox" 
                       id="modalSolvedIndependently"
                       checked={solvedIndependently}
                       onChange={(e) => setSolvedIndependently(e.target.checked)}
                       style={{ cursor: 'pointer' }}
                     />
-                    <label className="form-check-label fw-medium" htmlFor="modalSolvedIndependently" style={{ cursor: 'pointer', color: 'var(--text-primary)' }}>
+                    <label className="form-check-label small" htmlFor="modalSolvedIndependently" style={{ cursor: 'pointer', color: 'var(--lc-text-primary)' }}>
                       Solved independently after review
                     </label>
                   </div>
                 </div>
 
                 <div className="mb-2">
-                  <label className="form-label">Review Notes / Retrospective</label>
+                  <label className="form-label small mb-1" style={{ color: 'var(--lc-text-secondary)', fontSize: '0.75rem' }}>
+                    Review Notes / Retrospective
+                  </label>
                   <textarea 
-                    className="form-control"
+                    className="form-control form-control-sm"
                     rows="3"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
@@ -131,10 +149,10 @@ const ReviewModal = ({
                 </div>
               </div>
               
-              <div className="modal-footer border-0 pt-0">
+              <div className="modal-footer border-0 pt-0 px-1 d-flex justify-content-end gap-2">
                 <button 
                   type="button" 
-                  className="btn btn-secondary-custom" 
+                  className="btn btn-sm btn-lc-secondary" 
                   onClick={onClose}
                   disabled={isLoading}
                 >
@@ -142,12 +160,12 @@ const ReviewModal = ({
                 </button>
                 <button 
                   type="submit" 
-                  className="btn btn-save px-3"
+                  className="btn btn-sm btn-lc-primary px-3"
                   disabled={isLoading}
                 >
-                  {isLoading ? (
-                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
-                  ) : null}
+                  {isLoading && (
+                    <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true" />
+                  )}
                   Update Review
                 </button>
               </div>
